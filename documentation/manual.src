@@ -1,0 +1,14 @@
+/**
+\mainpage dls_pmaclib Python Module
+\section intro_sec Introduction
+I'm going to describe the module here, possibly with a <a href="http://www.google.co.uk">web link to the manufacturers webpage</a>. \n
+You can also link to \ref dls_pmaclib.py "internally generated documentation" with alternate text, or by just by mentioning its name, e.g. dls_pmaclib.py
+
+\section Installation
+
+Type make && make install
+
+\section Usage
+
+I'm going to describe how to use the module here
+*/
