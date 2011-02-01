@@ -14,4 +14,4 @@ $(DOCDIR): config.cfg manual.src
 
 # Remove entire documentation/doxygen dir on clean
 clean:
-	rm -rf $(DOCDIR
+	rm -rf $(DOCDIR)
