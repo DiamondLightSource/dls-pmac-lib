@@ -2,7 +2,7 @@
 
 import sys, re, socket, random, struct
 from Queue import Queue
-from qt import *
+from PyQt4 import *
 import threading, time
 
 class RemotePmacInterface:
