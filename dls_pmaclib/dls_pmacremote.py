@@ -4,6 +4,7 @@ import sys, re, socket, random, struct
 from Queue import Queue
 from PyQt4 import *
 import threading, time
+import telnetlib
 
 class RemotePmacInterface:
 	'''This class provides a common interface to a remote PMAC. It provides methods 
