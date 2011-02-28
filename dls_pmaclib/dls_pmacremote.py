@@ -1,8 +1,6 @@
 #!/bin/env dls-python2.6
 
 import sys, re, socket, random, struct
-from Queue import Queue
-from PyQt4 import *
 import threading, time
 import telnetlib
 
@@ -18,14 +16,7 @@ class RemotePmacInterface:
 		self.hostname = ""
 		self.port = None
 		self.parent = parent
-		self.CSNum = 1
 		
-		# Flags controlling polling of axis position/velocity/following error
-		self.disablePollingStatus = False
-		self.updateThreadHandle = None
-		self.updateReadyEvent = None
-		self.resultQueue = Queue()	  #  a queue object that stores the results of each polling update
-
 		# Access-to-the-connection semaphore. Use this to lock/unlock I/O access to the connection (whatever type it is) in child classes.
 		self.semaphore = threading.Semaphore()
 		
@@ -88,54 +79,6 @@ class RemotePmacInterface:
 	# Throws: an IOError if any I/O-related error occured.
 	def _sendCommand(self, command, shouldWait = True):
 		raise NotImplementedError('This method must be implemented by one of the child classes')
-
-	# Thread that sends the PMAC command to retrieve status, position, velocity and following error for each motor.
-	# The thread then puts the retrieved data on a queue which is read by the gui.
-	def updateThread(self, updatesReadyEvent):
-		cmd = "???&%s??%%i65"
-		for motorNo in range(1, self.getNumberOfAxes() + 1):
-			cmd = cmd +  "#" + str(motorNo) + "?PVF"		
-		while True:
-			if self.disablePollingStatus:
-				return
-			if not self.isConnectionOpen:
-				return
-			(returnStr, wasSuccessful) = self.sendCommand(cmd%self.CSNum)
-			if wasSuccessful:
-				valueList = returnStr.split('\r')
-				valueList.remove('\x06')	# remove the trailing character from the list
-				# first value is global status
-				self.resultQueue.put([valueList[0], 0, 0, 0, "G"])
-				# second value is the CS
-				self.resultQueue.put([valueList[1], 0, 0, 0, "CS%s" % self.CSNum])
-				# third is feedrate
-				self.resultQueue.put([valueList[2], 0, 0, 0, "FEED%s" % self.CSNum])				
-                                # fourth is the PMAC identity
-				self.resultQueue.put([valueList[3], 0, 0, 0, "IDENT"])				
-				valueList = valueList[4:]
-				cols = 4
-				for motorRow, i in enumerate(range(0, len(valueList), cols)):
-					returnList = valueList[i:i+cols]
-					returnList.append(motorRow)
-					self.resultQueue.put( returnList, False)
-				time.sleep(0.1)
-				evUpdatesReady = QCustomEvent( updatesReadyEvent, None )
-				QThread.postEvent( self.parent, evUpdatesReady )
-			else:
-				print 'WARNING: Error while sending update request ("%s")' % returnStr
-
-	def startPollingStatus(self, start):
-		if start:
-			self.disablePollingStatus = False
-			if self.updateThreadHandle:
-				if not self.updateThreadHandle.isAlive():
-					self.updateThreadHandle = threading.Thread(target = self.updateThread, args=self.updateReadyEvent)
-					self.updateThreadHandle.start()
-			else:
-				print "### Error: no thread has been created so no thread can be started..."
-				return
-		else:
-			self.disablePollingStatus = True
 
 	# Return a string designating which PMAC model this is, or None on error
 	def getPmacModel(self):
@@ -288,12 +231,8 @@ class RemotePmacInterface:
 		base = self.getOnboardAxisI7000PlusVarsBase(axis)
 		iVar = base + offset
 		self.setVar('i%d' % iVar, value)
-
-	def sendSeries(self, cmdLst, progressEventType, downloadDoneEventType, eventReciever):
-		arguments = (cmdLst, progressEventType, downloadDoneEventType, eventReciever)
-		threading.Thread(target = self.sendSeriesThread, args = arguments).start()
-
- 	# Thread function that sends out a whole list of commands to the pmac
+		
+ 	# function that sends out a whole list of commands to the pmac
 	# (like from a file...). The function waits for a response from each command
 	# and register any errors returned.
 	# After a command has been sent and a response received, the function will post an event
@@ -301,9 +240,7 @@ class RemotePmacInterface:
 	# cmdLst is a list of tuples: (lineNumber, command)
 	# where command is the command from the file and lineNumber
 	# is the line number from the original file.
-	def sendSeriesThread(self, cmdLst, progressEventType, downloadDoneEventType, eventReceiver):
-		retLst = []
-		errLineLst = [] # list of tuples: (lineNumber, PMAC error code)
+	def sendSeries(self, cmdLst):
 		errRegExp = re.compile(r'ERR\d{3}')
 
 		# Acquire the semaphore controlling access to the connection
@@ -311,35 +248,30 @@ class RemotePmacInterface:
 		if self.verboseMode:
 			print '\n\n\n\nGot the semaphore!\n\n\n\n'
 
-		for i, cmd in enumerate(cmdLst):
-		
-			# Check if the user has hit the Cancel button
-			if eventReceiver.canceledDownload:
-				break
-
+		for i, cmd in enumerate(cmdLst):		
 			# Send one line from to the controller.
 			# Because we have acquired the semaphore already, we do not wait for it again.
 			(lineNumber, command) = cmd
 			(pmacResponseStr, wasSuccessful) = self.sendCommand(command, shouldWait = False)
-			
 			# Check if PMAC returns an error as a response; if so, append the error message to the error list
 			if not wasSuccessful or errRegExp.findall(pmacResponseStr):
-				errLineLst.append( (lineNumber, pmacResponseStr) )
+				wasSuccessful = False
 				
-			# Post a Qt event with current progress data
-			ev = QCustomEvent( progressEventType, i + 1)
-			QThread.postEvent( eventReceiver, ev )
+			# yield control back
+			try:
+				yield (wasSuccessful, lineNumber, command, pmacResponseStr)
+			except GeneratorExit:
+				# user cancelled operation
+				self.semaphore.release()
+				if self.verboseMode:
+					print '\n\n\n\nReleased the semaphore because of cancellation!\n\n\n\n'				
+				return
 
 		# Release the semaphore controlling access to the connection 
 		self.semaphore.release()
 		if self.verboseMode:
 			print '\n\n\n\nReleased the semaphore!\n\n\n\n'
 
-		# Post a Qt event with the last progress data (to make the dialog close down)
-		ev = QCustomEvent( progressEventType, len(cmdLst)+1)
-		QThread.postEvent( eventReceiver, ev )
-		evDone = QCustomEvent( downloadDoneEventType, (errLineLst, lineNumber) )
-		QThread.postEvent( eventReceiver, evDone )
 	
 	# Jog incrementally
 	# \motor the motor number to jog.
@@ -440,7 +372,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 		
 	# Attempts to open a connection to a remote PMAC.
 	# Returns None on success, or an error message string on failure.
-	def connect(self, updatesReadyEvent=None):
+	def connect(self):
 
 		# Sanity checks
 		if self.isConnectionOpen:
@@ -476,13 +408,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 			# if the response is not of the form "1.945  \r\x06" then we're not talking to a PMAC!
 			self.disconnect()
 			return 'Device did not respond correctly to a "ver" command'
-		
-		# If position / velocity / following error updates are allowed, then perform them
-		if updatesReadyEvent:
-			self.updateReadyEvent = (updatesReadyEvent,)
-			self.updateThreadHandle = threading.Thread(target = self.updateThread, args=self.updateReadyEvent)
-			self.updateThreadHandle.start()
-	
+			
 	# Disconnect from the telnet session
 	# Returns None on success; error message on failure.
 	def disconnect(self):
@@ -547,7 +473,7 @@ class PmacTelnetInterface(RemotePmacInterface):
 		
 	# connect to the telnet session.
 	# Returns None if success. Error string if no connection parameters are set or if failure.
-	def connect( self, updatesReadyEvent=None ):
+	def connect( self):
 		self.tn = telnetlib.Telnet()	
 		if self.hostname:
 			try:
@@ -579,11 +505,6 @@ class PmacTelnetInterface(RemotePmacInterface):
 		except IOError:
 			self.isConnectionOpen = False
 			return "Error: did not get expected response from PMAC command \"ver\".\n\nMaybe someone is connected to the port already,\nor you are connecting to a wrong terminal server port,\nor the port is misconfigured (e.g. wrong baud rate)."
-		
-		if updatesReadyEvent:
-			self.updateReadyEvent = (updatesReadyEvent,)
-			self.updateThreadHandle = threading.Thread(target = self.updateThread, args=self.updateReadyEvent)
-			self.updateThreadHandle.start()
 		
 	# disconnect from the telnet session
 	def disconnect(self):
