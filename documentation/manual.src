@@ -12,7 +12,10 @@ or through a terminal server.
 The \ref dls_pmcpreprocessor.py module provides a class that pre-processes Delta-Tau 'pmc' files.
 
 \section Installation
+Installation use make and the python setuptools. 
 
 Type make && make install
+
+This will produce a python egg. Optionally modify the Makefile INSTALL_DIR and SCRIPT_DIR variables to define custom output directories.
 
 */

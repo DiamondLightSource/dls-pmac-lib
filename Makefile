@@ -1,8 +1,10 @@
 # Specify defaults for testing
 PREFIX = /dls_sw/prod/tools/RHEL5
 PYTHON = $(PREFIX)/bin/python2.6
-INSTALL_DIR = /dls_sw/work/common/python/test/packages
-SCRIPT_DIR = /dls_sw/work/common/python/test/scripts
+#INSTALL_DIR = /dls_sw/work/common/python/test/packages
+#SCRIPT_DIR = /dls_sw/work/common/python/test/scripts
+INSTALL_DIR = /home/up45/pythons/pmaccontrol/install/packages
+SCRIPT_DIR = /home/up45/pythons/pmaccontrol/install/scripts
 MODULEVER = 0.0
 
 # Override with any release info
