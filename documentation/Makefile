@@ -2,7 +2,7 @@
 DOCDIR := doxygen
 
 # this is the doxygen executable
-DOXYGEN := /dls_sw/work/tools/RHEL5/bin/doxygen
+DOXYGEN := doxygen
 
 # add the documentation files to the install target
 all install: $(DOCDIR)
