@@ -1,13 +1,13 @@
 #!/bin/env dls-python2.6
 
-import sys, re, socket, random, struct
+import sys, re, socket, select, random, struct
 import threading, time
 import telnetlib
 
 class RemotePmacInterface:
-	'''This class provides a common interface to a remote PMAC. It provides methods 
+	'''This class provides a common interface to a remote PMAC. It provides methods
            to connect to the PMAC (e.g. via a Telnet terminal server
-	   session or Ethernet), to disconnect, and to issue commands. It provides 
+	   session or Ethernet), to disconnect, and to issue commands. It provides
            methods for some basic axis commands (e.g. move/jog axis etc.).  It is
            a base class that should not be instantiated directly.'''
 	def __init__(self, parent = None, verbose = False, numAxes = None):
@@ -16,10 +16,10 @@ class RemotePmacInterface:
 		self.hostname = ""
 		self.port = None
 		self.parent = parent
-		
+
 		# Access-to-the-connection semaphore. Use this to lock/unlock I/O access to the connection (whatever type it is) in child classes.
 		self.semaphore = threading.Semaphore()
-		
+
 		self.isConnectionOpen = False
 
 		# Use the getter self.isModelGeobrick() to access this. The value is None if uninitialised.
@@ -37,13 +37,14 @@ class RemotePmacInterface:
 		self.hostname = str(host)
 		if port:
 			self.port = int(str(port))
-		else: port = None
+		else:
+			self.port = None
 
 	# Connect to the host
 	# Returns None if success. Error string if no connection parameters are set or if failure.
 	def connect( self, updatesReadyEvent=None ):
 		raise NotImplementedError('This method must be implemented in child classes')
-		
+
 	# disconnect from the host
 	def disconnect(self):
 		raise NotImplementedError('This method must be implemented in child classes')
@@ -61,7 +62,7 @@ class RemotePmacInterface:
 	#								  Note that PMAC may still return an "ERRxxx" code; this function will still
 	#								  consider that a successful transmission.
 	#		  * response (str): is either a string returned by the PMAC (on success), or an error message (on failure)
-	def sendCommand(self, command, shouldWait = True):		
+	def sendCommand(self, command, shouldWait = True):
 		# Submit the command to the low level function _sendCommand().
 		# If I/O with the PMAC fails, return as a failure case.
 		command = str(command)
@@ -80,6 +81,18 @@ class RemotePmacInterface:
 	def _sendCommand(self, command, shouldWait = True):
 		raise NotImplementedError('This method must be implemented by one of the child classes')
 
+	# Turn on the modbus on the PMAC to allow spinlocks on the device
+	def enablePmacLocking(self):
+		raise NotImplementedError('This method must be implemented by one of the child classes')
+
+	# Turn off the modbus on the PMAC to disable spinlocks on the device
+	def disablePmacLocking(self):
+		raise NotImplementedError('This method must be implemented by one of the child classes')
+
+	# Check if the modbus on the PMAC is enabled, i.e. if spinlocks are possible
+	def pmacLockingEnabled(self):
+		raise NotImplementedError('This method must be implemented by one of the child classes')
+
 	# Return a string designating which PMAC model this is, or None on error
 	def getPmacModel(self):
 		# Ask for pmac model, returns an integer
@@ -91,7 +104,7 @@ class RemotePmacInterface:
 			modelCode = int(mo.group(1))
 		else:
 			raise ValueError('Received malformed input from PMAC (%r)' % retStr)
-		
+
 		# Return a model designation based on model code
 		modelNamesByCode = {
 			602413: 'Turbo PMAC2-VME',
@@ -210,7 +223,7 @@ class RemotePmacInterface:
 		self.setVar('ms%d,i%d' % (macroStationNo, iVar), value)
 
 	# Calculate the base I-variable number in the I70mn (say, "I7000+") range for an onboard Geobrick axis.
-	# For axes 1, 2, ... the bases are 7000, 7010, 7020, 7030, 7100, 7110, 7120, 7130. 
+	# For axes 1, 2, ... the bases are 7000, 7010, 7020, 7030, 7100, 7110, 7120, 7130.
 	def getOnboardAxisI7000PlusVarsBase(self, axis):
 		# If not a Geobrick axis, raise an exception
 		self.checkAxisIsInRange(axis)
@@ -231,7 +244,7 @@ class RemotePmacInterface:
 		base = self.getOnboardAxisI7000PlusVarsBase(axis)
 		iVar = base + offset
 		self.setVar('i%d' % iVar, value)
-		
+
  	# function that sends out a whole list of commands to the pmac
 	# (like from a file...). The function waits for a response from each command
 	# and register any errors returned.
@@ -248,7 +261,7 @@ class RemotePmacInterface:
 		if self.verboseMode:
 			print '\n\n\n\nGot the semaphore!\n\n\n\n'
 
-		for i, cmd in enumerate(cmdLst):		
+		for i, cmd in enumerate(cmdLst):
 			# Send one line from to the controller.
 			# Because we have acquired the semaphore already, we do not wait for it again.
 			(lineNumber, command) = cmd
@@ -256,7 +269,7 @@ class RemotePmacInterface:
 			# Check if PMAC returns an error as a response; if so, append the error message to the error list
 			if not wasSuccessful or errRegExp.findall(pmacResponseStr):
 				wasSuccessful = False
-				
+
 			# yield control back
 			try:
 				yield (wasSuccessful, lineNumber, command, pmacResponseStr)
@@ -264,15 +277,15 @@ class RemotePmacInterface:
 				# user cancelled operation
 				self.semaphore.release()
 				if self.verboseMode:
-					print '\n\n\n\nReleased the semaphore because of cancellation!\n\n\n\n'				
+					print '\n\n\n\nReleased the semaphore because of cancellation!\n\n\n\n'
 				return
 
-		# Release the semaphore controlling access to the connection 
+		# Release the semaphore controlling access to the connection
 		self.semaphore.release()
 		if self.verboseMode:
 			print '\n\n\n\nReleased the semaphore!\n\n\n\n'
 
-	
+
 	# Jog incrementally
 	# \motor the motor number to jog.
 	# \direction string either "pos" or "neg"
@@ -283,30 +296,30 @@ class RemotePmacInterface:
 		elif direction == "pos":
 			cmd = "#" + str(motor) + "J^" + str(distance)
 		else: return (cmd, "Error, could not recognise direction: " + str(direction), False)
-		
+
 		(retStr, retStatus) = self.sendCommand( cmd )
 		return (cmd, retStr, retStatus)
-		
+
 	def jogStop(self, motor):
 		cmd = "#" + str(motor) + "J/"
 		(retStr, retStatus) = self.sendCommand( cmd )
 		return (cmd, retStr, retStatus)
-		
+
 	def jogTo(self, motor, newposition):
 		cmd = "#" + str(motor) + "J=" + str(newposition)
 		(retStr, retStatus) = self.sendCommand( cmd )
 		return (cmd, retStr, retStatus)
-		
+
 	def jogContinous(self, motor, direction):
 		if direction == "neg":
 			cmd = "#" + str(motor) + "J-"
 		elif direction == "pos":
 			cmd = "#" + str(motor) + "J+"
 		else: return (cmd, "Error, could not recognise direction: " + str(direction), False)
-		
+
 		(retStr, retStatus) = self.sendCommand( cmd )
 		return (cmd, retStr, retStatus)
-		
+
 	def homeCommand(self, motor):
 		cmd = "#"+str(motor)+"HM"
 		(retStr, retStatus) = self.sendCommand( cmd )
@@ -317,11 +330,11 @@ class RemotePmacInterface:
 		(retStr, status) = self.sendCommand( "i"+motor+"24")
 		if not status:
 			return 1
-		
+
 		#print (retStr, status)
 		initialLimits = int( retStr.strip('$\r\x06'), 16)
 		currentlyEnabled = bool( not (initialLimits & 0x20000) )
-		
+
 		if currentlyEnabled and disable:
 			# Disable limits
 			limitSetting = initialLimits | 0x20000
@@ -344,7 +357,7 @@ class RemotePmacInterface:
 	# ---------------------------------------------------------- Tests ----------------------------------------------------------
 	# A very basic test framework. Prints out test results onto standard output.
 	# Run pmac.runTests() on a newly created pmac = PmacRemoteInterface(...) object, which is already successfully connect()-ed.
-	
+
 	def testGetAxisMacroStationNumber(self):
 		for i in range(1,33):
 			try:
@@ -369,7 +382,7 @@ class RemotePmacInterface:
 
 class PmacEthernetInterface(RemotePmacInterface):
 	'''Allows connection to a PMAC over an Ethernet interface.'''
-		
+
 	# Attempts to open a connection to a remote PMAC.
 	# Returns None on success, or an error message string on failure.
 	def connect(self):
@@ -382,7 +395,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 
 		# Create a new socket instance
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.sock.setblocking(1)
+		#self.sock.setblocking(1) # N.B.: line is pointless because the next one overrides it
 		self.sock.settimeout(3)
 
 		# Attempt to establish a connection to the remote host
@@ -390,17 +403,23 @@ class PmacEthernetInterface(RemotePmacInterface):
 			if self.verboseMode:
 				print 'Connecting a socket to host "%s" using port %d' % (self.hostname, self.port)
 			self.sock.connect( (self.hostname, self.port) )
+			if self.verboseMode:
+				print 'Connected to host "%s" on port %d' % (self.hostname, self.port)
 		except socket.gaierror:
 			return 'ERROR: unknown host'
 		except:
 			return 'ERROR: connection refused by host'
 
 		self.isConnectionOpen = True
-		
+
 		# Check that the we are connected to a pmac by issuing the "ver" command -- expecting the 1.922 in return.
-		# If we don't get the right response, then disconnect automatically
+		#If we don't get the right response, then disconnect automatically
 		try:
+			if self.verboseMode:
+				print 'Testing connection...'
 			response = self._sendCommand('ver')
+			if self.verboseMode:
+				print '\tDevice responding.' + response
 		except IOError:
 			self.disconnect()
 			return 'Device failed to respond to a "ver" command'
@@ -408,11 +427,12 @@ class PmacEthernetInterface(RemotePmacInterface):
 			# if the response is not of the form "1.945  \r\x06" then we're not talking to a PMAC!
 			self.disconnect()
 			return 'Device did not respond correctly to a "ver" command'
-			
+
 	# Disconnect from the telnet session
 	# Returns None on success; error message on failure.
 	def disconnect(self):
 		if self.isConnectionOpen:
+                        self.releasePmacSpinlock()
 			self.semaphore.acquire()
 			self.sock.close()
 			self.semaphore.release()
@@ -424,36 +444,191 @@ class PmacEthernetInterface(RemotePmacInterface):
 		# Add a TCP/IP header to the packet. This header is described in the "VR_PMAC_GETRESPONSE" section on page 26
 		# of "Accessory 54E Ethernet Protocol User Manual":
 		# S:/Technical/Controls/Delta Tau/DLS Motor Controller (Geobrick LV-IMS)/Manuals/acc-54e rev2.pdf
-		#
-		# Note: According to the spec, VR_PMAC_GETRESPONSE will return only up to 1400 characters!
-		#       Proposed solution for longer responses -- *not implemented*:
-		#       * further VR_PMAC_GETBUFFER packets must be used to get the rest of the message (1400 byte segments);
-		#       * _possibly_ VR_PMAC_READREADY packets can be used to query the PMAC to check whether there is
-		#         unread data still residing on the PMAC.
-		# [TODO] Fix receiving responses longer than 1400 bytes.
-		def addHeader(command):
+		def getresponseRequest(command):
 			assert type(command) == str
 			headerStr = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len(command))
 			wrappedCommand = headerStr + command
 			return wrappedCommand
+
+		def getbufferRequest():
+			request = struct.pack('8B',0xC0,0xC5,0x0,0x0,0x0,0x0,0x08,0x0) # 0x08,0x0 for a length of 2048; 1400 would be 0x05,0x78
+			return request
+
 		try:
 			try:
-				if shouldWait:
+				self.acquirePmacSpinlock(shouldWait)
+                                if shouldWait:
 					self.semaphore.acquire()
-				self.sock.sendall(addHeader(command))    # attept to send the whole packet
+				self.sock.sendall(getresponseRequest(command)) # attept to send the whole packet
 				if self.verboseMode:
 					print 'Sent out: %r' % command
-				returnStr = self.sock.recv(2048)         # wait for and read the response from PMAC (will be at most 1400 chars)
+				returnStr = self.sock.recv(2048) # wait for and read the response from PMAC (will be at most 1400 chars)
 
-				if self.verboseMode:
-					print 'Received: %r' % returnStr
+				short_response = len(returnStr) < 1400
+
+				if short_response and (returnStr[len(returnStr) - 1] == '\x0D'):
+					raise IOError('PMAC communication error') # timeout or error
+
+				if short_response and (returnStr[len(returnStr) - 1] == '\x00'):
+					raise IOError('Connection to PMAC lost') # connection lost
+
+				if short_response and (returnStr[len(returnStr) - 1] != '\x06'):
+					raise IOError('Malformed response') # weird error
+
+				short_response = short_response and (len(returnStr) > 1)
+				if short_response and (returnStr[len(returnStr) - 2] != '\r'):
+					raise IOError('Truncated short response') # truncation error in short response
+
+				# Possible return cases after self.sock.recv(bufsize):
+				# 	returnStr[len(returnStr) - 1] == 0x06 (CTRL_F) => DONE.
+				# 	returnStr[len(returnStr) - 1] == 0x0D (CTRL_M, '\r') => timeout or error
+				# 	neither => continue receiving data
+				enterLoop = (returnStr[len(returnStr) - 1] != '\x06')
+                                enterLoop = enterLoop and (returnStr[len(returnStr) - 1] != '\x0D')
+				while enterLoop:
+					self.sock.sendall(getbufferRequest())
+                                        tmp = self.sock.recv(2048)
+                                        if len(tmp) < 1400 and tmp[len(tmp) - 1] == '\x00':
+						raise IOError('Connection to PMAC lost')
+					returnStr = returnStr + tmp
+					enterLoop = (returnStr[len(returnStr) - 1] != '\x06')
+                                        enterLoop = enterLoop and (returnStr[len(returnStr) - 1] != '\x0D')
+
+				if returnStr[len(returnStr) - 1] == '\x0D': # stopped looping because of either timeout or error
+					raise IOError('PMAC communication error')
+
+				if (len(returnStr) > 1) and (returnStr[len(returnStr) - 2] != '\r'): # truncation error in multi-buffer response
+					returnStr = returnStr[:len(returnStr) - 1] + ' WARNING: response truncated.' + returnStr[len(returnStr) - 1]
+
 				return returnStr
 			finally:
 				if shouldWait:
 					self.semaphore.release()
+                                self.releasePmacSpinlock(shouldWait)
 		except socket.error:
 			# Interpret any socket-related error as an I/O error
 			raise IOError('Socket communication error')
+
+	# acquire a spinlock for the PMAC itself
+	def acquirePmacSpinlock(self, shouldWait = True):
+		try:
+			lockCommand = struct.pack('8B',0x40,0xD7,0x0,0x01,0x0,0x0,0x0,0x0)
+			if shouldWait:
+				self.semaphore.acquire()
+			self.sock.sendall(lockCommand)
+			#if self.verboseMode:
+				#print 'Lock command sent.'
+			read_ready,_,_ = select.select([self.sock], [], [], 2.0)
+			while not read_ready:
+				self.sock.sendall(lockCommand)
+				#if self.verboseMode:
+					#print 'Re-sent lock command.'
+				read_ready,_,_ = select.select([self.sock], [], [], 2.0)
+			response = self.sock.recv(2048)
+			#if self.verboseMode:
+				#print 'Recieved response.'
+			if shouldWait:
+				self.semaphore.release()
+		except socket.error:
+			# Interpret any socket-related error as an I/O error
+			raise IOError('Socket communication error trying to acquire spinlock')
+
+	# release a previously acquired spinlock for the PMAC itself
+	def releasePmacSpinlock(self, shouldWait = True):
+		try:
+			unlockCommand = struct.pack('8B',0x40,0xD7,0x0,0x0,0x0,0x0,0x0,0x0)
+			if shouldWait:
+				self.semaphore.acquire()
+			self.sock.sendall(unlockCommand)
+			response = self.sock.recv(2048)
+			if shouldWait:
+				self.semaphore.release()
+		except socket.error:
+			# Interpret any socket-related error as an I/O error
+			raise IOError('Socket communication error trying to release spinlock')
+
+	# Turn on the modbus on the PMAC to allow spinlocks on the device
+	def enablePmacLocking(self):
+		try:
+			self.sendCommand('def ubuf 256')
+			self.sendCommand('i67=i4908')
+			(s,_) = self.sendCommand('i67')
+			i67 = int(s.rstrip('\x06').rstrip('\r').lstrip('$'))
+			self.sendCommand('wl:$%r,$100000000000' % i67)
+			i67 = i67 + 3
+			self.sendCommand('wl:$%r,$100000000000' % i67)
+			i67 = i67 + 3
+			self.sendCommand('wl:$%r,$100000000000' % i67)
+			i67 = i67 + 3
+			self.sendCommand('wl:$%r,$100000000000' % i67)
+			self.sendCommand('i69=i67+$70')
+			self.sendCommand('save')
+		except socket.error:
+			# Interpret any socket-related error as an I/O error
+			raise IOError('Socket communication error')
+
+	# Turn off the modbus on the PMAC to disable spinlocks on the device
+	def disablePmacLocking(self, shouldWait = True):
+		try:
+                        self.acquirePmacSpinlock()
+
+			# Lock-free equivalent of (s, code) = self.sendCommand('i69=0')
+                        request = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len('i69=0'))
+                        request = request + 'i69=0'
+                        if shouldWait:
+				self.semaphore.acquire()
+			self.sock.sendall(request)
+			response = self.sock.recv(2048)
+			if shouldWait:
+				self.semaphore.release()
+
+			# Lock-free equivalent of (s, code) = self.sendCommand('def ubuf 0')
+                        request = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len('def ubuf 0'))
+                        request = request + 'def ubuf 0'
+                        if shouldWait:
+				self.semaphore.acquire()
+			self.sock.sendall(request)
+			response = self.sock.recv(2048)
+			if shouldWait:
+				self.semaphore.release()
+
+			# Lock-free equivalent of (s, code) = self.sendCommand('i67=0')
+                        request = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len('i67=0'))
+                        request = request + 'i67=0'
+                        if shouldWait:
+				self.semaphore.acquire()
+			self.sock.sendall(request)
+			response = self.sock.recv(2048)
+			if shouldWait:
+				self.semaphore.release()
+
+			# Lock-free equivalent of (s, code) = self.sendCommand('save')
+                        request = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len('save'))
+                        request = request + 'save'
+                        if shouldWait:
+				self.semaphore.acquire()
+			self.sock.sendall(request)
+			response = self.sock.recv(2048)
+			if shouldWait:
+				self.semaphore.release()
+
+                        self.releasePmacSpinlock()
+		except socket.error:
+			# Interpret any socket-related error as an I/O error
+			raise IOError('Socket communication error')
+
+	# Check if the modbus on the PMAC is enabled, i.e. if spinlocks are possible
+	def pmacLockingEnabled(self):
+		(i67, success) = self.sendCommand('i67')
+		if success:
+			i67 = int(i67.rstrip('\x06').rstrip('\r').lstrip('$'))
+			if i67 == 0:
+				return False
+			else:
+				return True
+		else:
+			raise IOError('Communication error')
+
 
 class PmacTelnetInterface(RemotePmacInterface):
 	'''Allows connection to a PMAC using a Telnet connection to a terminal server session.'''
@@ -470,11 +645,11 @@ class PmacTelnetInterface(RemotePmacInterface):
 		# 4: everything else... (things not covered above plus commands with no return value)
 		re.compile( r'\x06' )
 	]
-		
+
 	# connect to the telnet session.
 	# Returns None if success. Error string if no connection parameters are set or if failure.
 	def connect( self):
-		self.tn = telnetlib.Telnet()	
+		self.tn = telnetlib.Telnet()
 		if self.hostname:
 			try:
 				if self.port > 0:
@@ -496,16 +671,16 @@ class PmacTelnetInterface(RemotePmacInterface):
 				return retStr
 		else:
 			return "ERROR: Could not open telnet session. No hostname set."
-			
+
 		self.isConnectionOpen = True
-		
+
 		# Check flow of serial comm by trying a basic "ver" command (which returns firmware version)
 		try:
 			response = self._sendCommand("ver")
 		except IOError:
 			self.isConnectionOpen = False
 			return "Error: did not get expected response from PMAC command \"ver\".\n\nMaybe someone is connected to the port already,\nor you are connecting to a wrong terminal server port,\nor the port is misconfigured (e.g. wrong baud rate)."
-		
+
 	# disconnect from the telnet session
 	def disconnect(self):
 		if self.isConnectionOpen:
@@ -513,8 +688,8 @@ class PmacTelnetInterface(RemotePmacInterface):
 			self.semaphore.acquire()
 			self.tn.close()
 			self.semaphore.release()
-		
-	# Send a single telnet command to the controller and wait for 
+
+	# Send a single telnet command to the controller and wait for
 	# the expected result returned by the controler.
 	def _sendCommand( self, command, shouldWait = True ):
 		command = str(command)
@@ -542,6 +717,21 @@ class PmacTelnetInterface(RemotePmacInterface):
 			raise IOError('Timed out waiting for expected response. Got only: ' + str(returnStr))
 		else:
 			return str(returnStr)
+
+	# Turn on the modbus on the PMAC to allow spinlocks on the device
+	def turnPmacLockingOn(self):
+		#This feature only makes sense for Ethernet interfaces
+		raise NotImplementdError('This feature is only available to sister class PmacEthernetInterface.')
+
+	# Turn off the modbus on the PMAC to disable spinlocks on the device
+	def turnPmacLockingOff(self):
+		#This feature only makes sense for Ethernet interfaces
+		raise NotImplementdError('This feature is only available to sister class PmacEthernetInterface.')
+
+	# Check if the modbus on the PMAC is enabled, i.e. if spinlocks are possible
+	def pmacLockingEnabled(self):
+		return False
+
 ## \file
 # \section License
 # Author: Diamond Light Source, Copyright 2011
