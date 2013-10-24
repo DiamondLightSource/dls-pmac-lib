@@ -10,7 +10,7 @@ class RemotePmacInterface:
 	   session or Ethernet), to disconnect, and to issue commands. It provides
            methods for some basic axis commands (e.g. move/jog axis etc.).  It is
            a base class that should not be instantiated directly.'''
-	def __init__(self, parent = None, verbose = False, numAxes = None):
+	def __init__(self, parent = None, verbose = False, numAxes = None, timeout = 3.0):
 		# Basic connection settings
 		self.verboseMode = verbose
 		self.hostname = ""
@@ -21,7 +21,7 @@ class RemotePmacInterface:
 		self.semaphore = threading.Semaphore()
 
 		self.isConnectionOpen = False
-
+                self.timeout = timeout
 		# Use the getter self.isModelGeobrick() to access this. The value is None if uninitialised.
 		self._isModelGeobrick = None
 
@@ -396,7 +396,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 		# Create a new socket instance
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		#self.sock.setblocking(1) # N.B.: line is pointless because the next one overrides it
-		self.sock.settimeout(3)
+		self.sock.settimeout(self.timeout)
 
 		# Attempt to establish a connection to the remote host
 		try:
@@ -702,7 +702,7 @@ class PmacTelnetInterface(RemotePmacInterface):
 				if self.verboseMode:
 					print 'Sent out: %r' % command
 				# expect a response from the PMAC, satisfying one of the regexes in self.lstRegExps (3 seconds timeout)
-				(returnMatchNo, returnMatch, returnStr) = self.tn.expect( self.lstRegExps, 3 )
+				(returnMatchNo, returnMatch, returnStr) = self.tn.expect( self.lstRegExps, self.timeout )
 				if self.verboseMode:
 					print 'Received: %r' % returnStr
 			finally:
