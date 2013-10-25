@@ -66,9 +66,10 @@ class RemotePmacInterface:
 		# Submit the command to the low level function _sendCommand().
 		# If I/O with the PMAC fails, return as a failure case.
 		command = str(command)
+                doubleTimeout = self.commandNeedsDoubleTimeout(command)
 		(success, failure) = (True, False)
 		try:
-			response = self._sendCommand(command, shouldWait = shouldWait)
+			response = self._sendCommand(command, shouldWait = shouldWait, doubleTimeout = doubleTimeout)
 		except IOError, e:
 			return ('I/O error during comm with PMAC: %s' % str(e), failure)
 		return (response, success)
@@ -78,7 +79,7 @@ class RemotePmacInterface:
 	# each read/write cycle should be implemented to block.
 	# Returns: a string with PMAC's response to the command.
 	# Throws: an IOError if any I/O-related error occured.
-	def _sendCommand(self, command, shouldWait = True):
+	def _sendCommand(self, command, shouldWait = True, doubleTimeout = False):
 		raise NotImplementedError('This method must be implemented by one of the child classes')
 
 	# Turn on the modbus on the PMAC to allow spinlocks on the device
@@ -285,6 +286,10 @@ class RemotePmacInterface:
 		if self.verboseMode:
 			print '\n\n\n\nReleased the semaphore!\n\n\n\n'
 
+        # Controls whether to wait for double the normal timeout for this 
+        # message. Currently only used for the SAVE command.
+        def commandNeedsDoubleTimeout(self, command):
+                return 'SAVE' in command.upper()
 
 	# Jog incrementally
 	# \motor the motor number to jog.
@@ -440,7 +445,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 			if self.verboseMode:
 				print 'Disconnected from ' + self.hostname
 
-	def _sendCommand(self, command, shouldWait = True):
+	def _sendCommand(self, command, shouldWait = True, doubleTimeout = False):
 		# Add a TCP/IP header to the packet. This header is described in the "VR_PMAC_GETRESPONSE" section on page 26
 		# of "Accessory 54E Ethernet Protocol User Manual":
 		# S:/Technical/Controls/Delta Tau/DLS Motor Controller (Geobrick LV-IMS)/Manuals/acc-54e rev2.pdf
@@ -459,9 +464,14 @@ class PmacEthernetInterface(RemotePmacInterface):
 				self.acquirePmacSpinlock(shouldWait)
                                 if shouldWait:
 					self.semaphore.acquire()
+                                if doubleTimeout:
+                                        self.sock.settimeout(self.timeout*2)
+                                else:
+                                        self.sock.settimeout(self.timeout)
 				self.sock.sendall(getresponseRequest(command)) # attept to send the whole packet
 				if self.verboseMode:
 					print 'Sent out: %r' % command
+
 				returnStr = self.sock.recv(2048) # wait for and read the response from PMAC (will be at most 1400 chars)
 
 				short_response = len(returnStr) < 1400
@@ -502,6 +512,8 @@ class PmacEthernetInterface(RemotePmacInterface):
 
 				return returnStr
 			finally:
+                                if doubleTimeout:
+                                        self.sock.settimeout(self.timeout)
 				if shouldWait:
 					self.semaphore.release()
                                 self.releasePmacSpinlock(shouldWait)
@@ -691,8 +703,12 @@ class PmacTelnetInterface(RemotePmacInterface):
 
 	# Send a single telnet command to the controller and wait for
 	# the expected result returned by the controler.
-	def _sendCommand( self, command, shouldWait = True ):
+	def _sendCommand( self, command, shouldWait = True, doubleTimeout = False):
 		command = str(command)
+                messageTimeout = self.timeout
+                if doubleTimeout:
+                        messageTimeout *= 2
+
 		try:
 			try:
 				if shouldWait:
@@ -701,10 +717,12 @@ class PmacTelnetInterface(RemotePmacInterface):
 				self.tn.write( command  + '\r\n')
 				if self.verboseMode:
 					print 'Sent out: %r' % command
-				# expect a response from the PMAC, satisfying one of the regexes in self.lstRegExps (3 seconds timeout)
-				(returnMatchNo, returnMatch, returnStr) = self.tn.expect( self.lstRegExps, self.timeout )
+
+				# expect a response from the PMAC, satisfying one of the regexes in self.lstRegExps
+				(returnMatchNo, returnMatch, returnStr) = self.tn.expect( self.lstRegExps, messageTimeout)
 				if self.verboseMode:
 					print 'Received: %r' % returnStr
+
 			finally:
 				if shouldWait:
 					self.semaphore.release()
