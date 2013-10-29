@@ -22,6 +22,7 @@ class RemotePmacInterface:
 
 		self.isConnectionOpen = False
                 self.timeout = timeout
+
 		# Use the getter self.isModelGeobrick() to access this. The value is None if uninitialised.
 		self._isModelGeobrick = None
 
@@ -468,6 +469,7 @@ class PmacEthernetInterface(RemotePmacInterface):
                                         self.sock.settimeout(self.timeout*2)
                                 else:
                                         self.sock.settimeout(self.timeout)
+
 				self.sock.sendall(getresponseRequest(command)) # attept to send the whole packet
 				if self.verboseMode:
 					print 'Sent out: %r' % command
@@ -713,6 +715,16 @@ class PmacTelnetInterface(RemotePmacInterface):
 			try:
 				if shouldWait:
 					self.semaphore.acquire()
+                                        
+                                # clear the input queue of orphaned replies to
+                                # any previous messages (this can happen if
+                                # the previous message timed out before 
+                                # receiving its reply).
+                                if self.tn.sock_avail():
+                                        orphanedMsg = self.tn.read_very_eager()
+                                        if self.verboseMode:
+                                                print "Received unexpected output from PMAC, discarding: %r" % orphanedMsg
+
 				# write the command to PMAC
 				self.tn.write( command  + '\r\n')
 				if self.verboseMode:
@@ -721,11 +733,11 @@ class PmacTelnetInterface(RemotePmacInterface):
 				# expect a response from the PMAC, satisfying one of the regexes in self.lstRegExps
 				(returnMatchNo, returnMatch, returnStr) = self.tn.expect( self.lstRegExps, messageTimeout)
 				if self.verboseMode:
-					print 'Received: %r' % returnStr
+                                        print 'Received: %r' % returnStr
 
-			finally:
-				if shouldWait:
-					self.semaphore.release()
+                        finally:
+                                if shouldWait:
+                                        self.semaphore.release()
 		except socket.error, e:
 			errorMsg = e[1]
 			raise IOError('Communication with PMAC broken: %s' % errorMsg)
