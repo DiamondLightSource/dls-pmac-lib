@@ -4,6 +4,9 @@ import sys, re, socket, select, random, struct
 import threading, time
 import telnetlib
 
+class IOPmacSentNullError(IOError):
+        pass
+
 class RemotePmacInterface:
 	'''This class provides a common interface to a remote PMAC. It provides methods
            to connect to the PMAC (e.g. via a Telnet terminal server
@@ -71,6 +74,13 @@ class RemotePmacInterface:
 		(success, failure) = (True, False)
 		try:
 			response = self._sendCommand(command, shouldWait = shouldWait, doubleTimeout = doubleTimeout)
+                except IOPmacSentNullError, e:
+                        # On the Ethernet interface the SAVE command responds with '\x00' if it has changes
+                        # to write, so in this case we don't report it as an error.  
+                        if doubleTimeout:
+                                response = ""
+                        else:
+                                return ('I/O error during comm with PMAC: %s' % str(e), failure)
 		except IOError, e:
 			return ('I/O error during comm with PMAC: %s' % str(e), failure)
 		return (response, success)
@@ -473,8 +483,11 @@ class PmacEthernetInterface(RemotePmacInterface):
 				self.sock.sendall(getresponseRequest(command)) # attept to send the whole packet
 				if self.verboseMode:
 					print 'Sent out: %r' % command
-
+                        
 				returnStr = self.sock.recv(2048) # wait for and read the response from PMAC (will be at most 1400 chars)
+
+                                if self.verboseMode:
+                                        print 'Received: %r' % returnStr
 
 				short_response = len(returnStr) < 1400
 
@@ -482,7 +495,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 					raise IOError('PMAC communication error') # timeout or error
 
 				if short_response and (returnStr[len(returnStr) - 1] == '\x00'):
-					raise IOError('Connection to PMAC lost') # connection lost
+                                        raise IOPmacSentNullError('Connection to PMAC lost') # connection lost
 
 				if short_response and (returnStr[len(returnStr) - 1] != '\x06'):
 					raise IOError('Malformed response') # weird error
@@ -501,7 +514,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 					self.sock.sendall(getbufferRequest())
                                         tmp = self.sock.recv(2048)
                                         if len(tmp) < 1400 and tmp[len(tmp) - 1] == '\x00':
-						raise IOError('Connection to PMAC lost')
+						raise IOPmacSentNullError('Connection to PMAC lost')
 					returnStr = returnStr + tmp
 					enterLoop = (returnStr[len(returnStr) - 1] != '\x06')
                                         enterLoop = enterLoop and (returnStr[len(returnStr) - 1] != '\x0D')
