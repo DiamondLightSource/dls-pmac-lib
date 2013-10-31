@@ -75,9 +75,14 @@ class RemotePmacInterface:
 		try:
 			response = self._sendCommand(command, shouldWait = shouldWait, doubleTimeout = doubleTimeout)
                 except IOPmacSentNullError, e:
-                        # On the Ethernet interface the SAVE command responds with '\x00' if it has changes
-                        # to write, so in this case we don't report it as an error.  
+                        # On the Ethernet interface the SAVE command responds
+                        # with '\x00' if it has changes to write, so in this 
+                        # case we suppress the error on the SAVE command 
+                        # itself, but not on any subsequent commands so as not 
+                        # to mask a genuine problem.   
                         if doubleTimeout:
+                                if self.verboseMode:
+                                        print "The PMAC returned a NULL character, probably due to sending a SAVE command - command was %r" % command
                                 response = ""
                         else:
                                 return ('I/O error during comm with PMAC: %s' % str(e), failure)
@@ -495,7 +500,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 					raise IOError('PMAC communication error') # timeout or error
 
 				if short_response and (returnStr[len(returnStr) - 1] == '\x00'):
-                                        raise IOPmacSentNullError('Connection to PMAC lost') # connection lost
+                                        raise IOPmacSentNullError('Did not respond - PMAC busy or connection lost') # connection lost or PMAC busy
 
 				if short_response and (returnStr[len(returnStr) - 1] != '\x06'):
 					raise IOError('Malformed response') # weird error
