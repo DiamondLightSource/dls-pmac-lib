@@ -1,4 +1,4 @@
-#!/bin/env dls-python2.6
+#!/bin/env dls-python
 
 import sys, re, socket, select, random, struct
 import threading, time
@@ -96,18 +96,6 @@ class RemotePmacInterface:
 	# Returns: a string with PMAC's response to the command.
 	# Throws: an IOError if any I/O-related error occured.
 	def _sendCommand(self, command, shouldWait = True, doubleTimeout = False):
-		raise NotImplementedError('This method must be implemented by one of the child classes')
-
-	# Turn on the modbus on the PMAC to allow spinlocks on the device
-	def enablePmacLocking(self):
-		raise NotImplementedError('This method must be implemented by one of the child classes')
-
-	# Turn off the modbus on the PMAC to disable spinlocks on the device
-	def disablePmacLocking(self):
-		raise NotImplementedError('This method must be implemented by one of the child classes')
-
-	# Check if the modbus on the PMAC is enabled, i.e. if spinlocks are possible
-	def pmacLockingEnabled(self):
 		raise NotImplementedError('This method must be implemented by one of the child classes')
 
 	# Return a string designating which PMAC model this is, or None on error
@@ -453,7 +441,6 @@ class PmacEthernetInterface(RemotePmacInterface):
 	# Returns None on success; error message on failure.
 	def disconnect(self):
 		if self.isConnectionOpen:
-                        self.releasePmacSpinlock()
 			self.semaphore.acquire()
 			self.sock.close()
 			self.semaphore.release()
@@ -477,7 +464,6 @@ class PmacEthernetInterface(RemotePmacInterface):
 
 		try:
 			try:
-				self.acquirePmacSpinlock(shouldWait)
                                 if shouldWait:
 					self.semaphore.acquire()
                                 if doubleTimeout:
@@ -536,130 +522,10 @@ class PmacEthernetInterface(RemotePmacInterface):
                                         self.sock.settimeout(self.timeout)
 				if shouldWait:
 					self.semaphore.release()
-                                self.releasePmacSpinlock(shouldWait)
 		except socket.error:
 			# Interpret any socket-related error as an I/O error
 			raise IOError('Socket communication error')
 
-	# acquire a spinlock for the PMAC itself
-	def acquirePmacSpinlock(self, shouldWait = True):
-		try:
-			lockCommand = struct.pack('8B',0x40,0xD7,0x0,0x01,0x0,0x0,0x0,0x0)
-			if shouldWait:
-				self.semaphore.acquire()
-			self.sock.sendall(lockCommand)
-			#if self.verboseMode:
-				#print 'Lock command sent.'
-			read_ready,_,_ = select.select([self.sock], [], [], 2.0)
-			while not read_ready:
-				self.sock.sendall(lockCommand)
-				#if self.verboseMode:
-					#print 'Re-sent lock command.'
-				read_ready,_,_ = select.select([self.sock], [], [], 2.0)
-			response = self.sock.recv(2048)
-			#if self.verboseMode:
-				#print 'Recieved response.'
-			if shouldWait:
-				self.semaphore.release()
-		except socket.error:
-			# Interpret any socket-related error as an I/O error
-			raise IOError('Socket communication error trying to acquire spinlock')
-
-	# release a previously acquired spinlock for the PMAC itself
-	def releasePmacSpinlock(self, shouldWait = True):
-		try:
-			unlockCommand = struct.pack('8B',0x40,0xD7,0x0,0x0,0x0,0x0,0x0,0x0)
-			if shouldWait:
-				self.semaphore.acquire()
-			self.sock.sendall(unlockCommand)
-			response = self.sock.recv(2048)
-			if shouldWait:
-				self.semaphore.release()
-		except socket.error:
-			# Interpret any socket-related error as an I/O error
-			raise IOError('Socket communication error trying to release spinlock')
-
-	# Turn on the modbus on the PMAC to allow spinlocks on the device
-	def enablePmacLocking(self):
-		try:
-			self.sendCommand('def ubuf 256')
-			self.sendCommand('i67=i4908')
-			(s,_) = self.sendCommand('i67')
-			i67 = int(s.rstrip('\x06').rstrip('\r').lstrip('$'))
-			self.sendCommand('wl:$%r,$100000000000' % i67)
-			i67 = i67 + 3
-			self.sendCommand('wl:$%r,$100000000000' % i67)
-			i67 = i67 + 3
-			self.sendCommand('wl:$%r,$100000000000' % i67)
-			i67 = i67 + 3
-			self.sendCommand('wl:$%r,$100000000000' % i67)
-			self.sendCommand('i69=i67+$70')
-			self.sendCommand('save')
-		except socket.error:
-			# Interpret any socket-related error as an I/O error
-			raise IOError('Socket communication error')
-
-	# Turn off the modbus on the PMAC to disable spinlocks on the device
-	def disablePmacLocking(self, shouldWait = True):
-		try:
-                        self.acquirePmacSpinlock()
-
-			# Lock-free equivalent of (s, code) = self.sendCommand('i69=0')
-                        request = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len('i69=0'))
-                        request = request + 'i69=0'
-                        if shouldWait:
-				self.semaphore.acquire()
-			self.sock.sendall(request)
-			response = self.sock.recv(2048)
-			if shouldWait:
-				self.semaphore.release()
-
-			# Lock-free equivalent of (s, code) = self.sendCommand('def ubuf 0')
-                        request = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len('def ubuf 0'))
-                        request = request + 'def ubuf 0'
-                        if shouldWait:
-				self.semaphore.acquire()
-			self.sock.sendall(request)
-			response = self.sock.recv(2048)
-			if shouldWait:
-				self.semaphore.release()
-
-			# Lock-free equivalent of (s, code) = self.sendCommand('i67=0')
-                        request = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len('i67=0'))
-                        request = request + 'i67=0'
-                        if shouldWait:
-				self.semaphore.acquire()
-			self.sock.sendall(request)
-			response = self.sock.recv(2048)
-			if shouldWait:
-				self.semaphore.release()
-
-			# Lock-free equivalent of (s, code) = self.sendCommand('save')
-                        request = struct.pack('8B',0x40,0xBF,0x0,0x0,0x0,0x0,0x0,len('save'))
-                        request = request + 'save'
-                        if shouldWait:
-				self.semaphore.acquire()
-			self.sock.sendall(request)
-			response = self.sock.recv(2048)
-			if shouldWait:
-				self.semaphore.release()
-
-                        self.releasePmacSpinlock()
-		except socket.error:
-			# Interpret any socket-related error as an I/O error
-			raise IOError('Socket communication error')
-
-	# Check if the modbus on the PMAC is enabled, i.e. if spinlocks are possible
-	def pmacLockingEnabled(self):
-		(i67, success) = self.sendCommand('i67')
-		if success:
-			i67 = int(i67.rstrip('\x06').rstrip('\r').lstrip('$'))
-			if i67 == 0:
-				return False
-			else:
-				return True
-		else:
-			raise IOError('Communication error')
 
 
 class PmacTelnetInterface(RemotePmacInterface):
@@ -765,20 +631,6 @@ class PmacTelnetInterface(RemotePmacInterface):
 			raise IOError('Timed out waiting for expected response. Got only: ' + str(returnStr))
 		else:
 			return str(returnStr)
-
-	# Turn on the modbus on the PMAC to allow spinlocks on the device
-	def turnPmacLockingOn(self):
-		#This feature only makes sense for Ethernet interfaces
-		raise NotImplementdError('This feature is only available to sister class PmacEthernetInterface.')
-
-	# Turn off the modbus on the PMAC to disable spinlocks on the device
-	def turnPmacLockingOff(self):
-		#This feature only makes sense for Ethernet interfaces
-		raise NotImplementdError('This feature is only available to sister class PmacEthernetInterface.')
-
-	# Check if the modbus on the PMAC is enabled, i.e. if spinlocks are possible
-	def pmacLockingEnabled(self):
-		return False
 
 ## \file
 # \section License
