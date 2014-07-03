@@ -424,9 +424,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 		# Check that the we are connected to a pmac by issuing the "ver" command -- expecting the 1.922 in return.
 		#If we don't get the right response, then disconnect automatically
 		try:
-			if self.verboseMode:
-				print 'Testing connection...'
-			response = self._sendCommand('ver')
+			response = self._sendCommand('i6=1 i3=2 ver')
 			if self.verboseMode:
 				print '\tDevice responding.' + response
 		except IOError:
@@ -434,6 +432,7 @@ class PmacEthernetInterface(RemotePmacInterface):
 			return 'Device failed to respond to a "ver" command'
 		if not re.match('^\d+\.\d+\s*\r\x06$',response):
 			# if the response is not of the form "1.945  \r\x06" then we're not talking to a PMAC!
+			print response
 			self.disconnect()
 			return 'Device did not respond correctly to a "ver" command'
 

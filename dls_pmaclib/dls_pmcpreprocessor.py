@@ -115,7 +115,7 @@ class clsPmacParser:
 		sorted_macros.reverse()
 		for macro in sorted_macros:
 			out_text = out_text.replace( macro[1], macro_dict[macro[1]] )
-		return out_text		
+		return out_text
 			
 	def saveOutput(self, outputFile = None):
                 '''Writes the processed output to the specified file.'''
