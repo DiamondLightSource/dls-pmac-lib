@@ -112,6 +112,7 @@ class RemotePmacInterface:
 
 		# Return a model designation based on model code
 		modelNamesByCode = {
+			602404: 'Turbo PMAC Clipper',
 			602413: 'Turbo PMAC2-VME',
 			603382: 'Geo Brick (3U Turbo PMAC2)'
 			}
