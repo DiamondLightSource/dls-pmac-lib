@@ -1,6 +1,6 @@
 #!/bin/env dls-python
 
-import sys, re, socket, select, random, struct
+import sys, re, socket, select, random, struct, errno
 import threading, time
 import telnetlib
 
@@ -98,24 +98,30 @@ class RemotePmacInterface:
 	def _sendCommand(self, command, shouldWait = True, doubleTimeout = False):
 		raise NotImplementedError('This method must be implemented by one of the child classes')
 
-	# Return a string designating which PMAC model this is, or None on error
-	def getPmacModel(self):
+	# Return a number designating which PMAC model this is, or Exception on error.
+	def getPmacModelCode(self):
 		# Ask for pmac model, returns an integer
 		(retStr, wasSuccessful) = self.sendCommand('cid')
+
 		if not wasSuccessful:
 			raise IOError('Error talking to PMAC')
+
 		mo = re.compile('^(\d+)\r\x06$').match(retStr)
-		if mo:
-			modelCode = int(mo.group(1))
-		else:
+		if not mo:
 			raise ValueError('Received malformed input from PMAC (%r)' % retStr)
 
+		return int(mo.group(1))
+
+	# Return a string designating which PMAC model this is, or None on error
+	def getPmacModel(self):
 		# Return a model designation based on model code
 		modelNamesByCode = {
-			602404: 'Turbo PMAC Clipper',
+			602404: 'Turbo PMAC2 Clipper',
 			602413: 'Turbo PMAC2-VME',
 			603382: 'Geo Brick (3U Turbo PMAC2)'
 			}
+
+		modelCode = self.getPmacModelCode()
 		try:
 			modelName = modelNamesByCode[modelCode]
 		except KeyError:
@@ -123,10 +129,30 @@ class RemotePmacInterface:
 
 		return modelName
 
+	def getShortModelName(self):
+		# Return a short model name based on model code
+		shortModelNamesByCode = {
+			602404: 'Clipper',
+			602413: 'Pmac',
+			603382: 'Geobrick',
+			}
+
+		modelCode = self.getPmacModelCode()
+		try:
+			modelName = shortModelNamesByCode[modelCode]
+		except KeyError:
+			modelName = "Pmac"
+
+		return modelName
+
+
 	def isModelGeobrick(self):
-		if self._isModelGeobrick == None:
+		# Used to handle functionality specific to the Geobrick.
+		# As a clipper board is based on the Geobrick, it is included here.
+		if self._isModelGeobrick is None:
 			# If self._isModelGeobrick is not initialised, do so now
-			self._isModelGeobrick = self.getPmacModel() == 'Geo Brick (3U Turbo PMAC2)'
+			geobrickModelCodes = [ 602404, 603382 ]
+			self._isModelGeobrick = self.getPmacModelCode() in geobrickModelCodes
 		return self._isModelGeobrick
 
 	# Get the number of macro stations available. This is given by number of Macro ICs available. One MACRO IC can control up to 8 axes,
@@ -462,6 +488,16 @@ class PmacEthernetInterface(RemotePmacInterface):
 			request = struct.pack('8B',0xC0,0xC5,0x0,0x0,0x0,0x0,0x08,0x0) # 0x08,0x0 for a length of 2048; 1400 would be 0x05,0x78
 			return request
 
+		def receiveReliably(char_num):
+			# If socket is interrupted with SIGINT, we need to repeat the receive call.
+			# SIGINT has only occured with a Clipper board; the reason for this is unknown.
+			while True:
+				try:
+					return self.sock.recv(char_num) # wait for and read the response from PMAC (will be at most 1400 chars)
+				except socket.error, e:
+					if e.errno != errno.EINTR:
+						raise
+
 		try:
 			try:
                                 if shouldWait:
@@ -474,10 +510,10 @@ class PmacEthernetInterface(RemotePmacInterface):
 				self.sock.sendall(getresponseRequest(command)) # attept to send the whole packet
 				if self.verboseMode:
 					print 'Sent out: %r' % command
-                        
-				returnStr = self.sock.recv(2048) # wait for and read the response from PMAC (will be at most 1400 chars)
 
-                                if self.verboseMode:
+				returnStr = receiveReliably(2048) # wait for and read the response from PMAC (will be at most 1400 chars)
+
+				if self.verboseMode:
                                         print 'Received: %r' % returnStr
 
 				short_response = len(returnStr) < 1400
