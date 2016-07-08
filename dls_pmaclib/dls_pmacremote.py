@@ -29,6 +29,11 @@ class RemotePmacInterface:
 		# Use the getter self.isModelGeobrick() to access this. The value is None if uninitialised.
 		self._isModelGeobrick = None
 
+		# These also need to be cached, as dls_pmaccontrol repeatedly polls these values in the GUI.
+		self._pmacModelCode = None
+		self._pmacModelName = None
+		self._shortModelName = None
+
 		# Use the getter self.getNumberOfAxes() to access this. The value is None if uninitialised.
 		if numAxes is not None:
 			self._numAxes = int(numAxes)
@@ -101,49 +106,54 @@ class RemotePmacInterface:
 	# Return a number designating which PMAC model this is, or Exception on error.
 	def getPmacModelCode(self):
 		# Ask for pmac model, returns an integer
-		(retStr, wasSuccessful) = self.sendCommand('cid')
+		if self._pmacModelCode is None:
+			(retStr, wasSuccessful) = self.sendCommand('cid')
 
-		if not wasSuccessful:
-			raise IOError('Error talking to PMAC')
+			if not wasSuccessful:
+				raise IOError('Error talking to PMAC')
 
-		mo = re.compile('^(\d+)\r\x06$').match(retStr)
-		if not mo:
-			raise ValueError('Received malformed input from PMAC (%r)' % retStr)
+			mo = re.compile('^(\d+)\r\x06$').match(retStr)
+			if not mo:
+				raise ValueError('Received malformed input from PMAC (%r)' % retStr)
 
-		return int(mo.group(1))
+			self._pmacModelCode = int(mo.group(1))
+
+		return self._pmacModelCode
 
 	# Return a string designating which PMAC model this is, or None on error
 	def getPmacModel(self):
 		# Return a model designation based on model code
-		modelNamesByCode = {
-			602404: 'Turbo PMAC2 Clipper',
-			602413: 'Turbo PMAC2-VME',
-			603382: 'Geo Brick (3U Turbo PMAC2)'
+		if self._pmacModelName is None:
+			modelNamesByCode = {
+				602404: 'Turbo PMAC2 Clipper',
+				602413: 'Turbo PMAC2-VME',
+				603382: 'Geo Brick (3U Turbo PMAC2)'
 			}
 
-		modelCode = self.getPmacModelCode()
-		try:
-			modelName = modelNamesByCode[modelCode]
-		except KeyError:
-			raise ValueError('Unsupported PMAC model')
+			modelCode = self.getPmacModelCode()
+			try:
+				self._pmacModelName = modelNamesByCode[modelCode]
+			except KeyError:
+				raise ValueError('Unsupported PMAC model')
 
-		return modelName
+		return self._pmacModelName
 
 	def getShortModelName(self):
 		# Return a short model name based on model code
-		shortModelNamesByCode = {
-			602404: 'Clipper',
-			602413: 'Pmac',
-			603382: 'Geobrick',
+		if self._shortModelName is None:
+			shortModelNamesByCode = {
+				602404: 'Clipper',
+				602413: 'Pmac',
+				603382: 'Geobrick',
 			}
 
-		modelCode = self.getPmacModelCode()
-		try:
-			modelName = shortModelNamesByCode[modelCode]
-		except KeyError:
-			modelName = "Pmac"
+			modelCode = self.getPmacModelCode()
+			try:
+				self._shortModelName = shortModelNamesByCode[modelCode]
+			except KeyError:
+				self._shortModelName = "Pmac"
 
-		return modelName
+		return self._shortModelName
 
 
 	def isModelGeobrick(self):
