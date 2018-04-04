@@ -132,7 +132,7 @@ class RemotePmacInterface:
 
 			if not wasSuccessful:
 				raise IOError('Error talking to PMAC')
-
+			
 			mo = re.compile('^(\d+)\r\x06$').match(retStr)
 			if not mo:
 				raise ValueError('Received malformed input from PMAC (%r)' % retStr)
@@ -698,6 +698,8 @@ class PmacTelnetInterface(RemotePmacInterface):
 			raise IOError('Timed out waiting for expected response. Got only: "%s"' % returnStr)
 		else:
 			return str(returnStr)
+
+
 class PmacSerialInterface(RemotePmacInterface):
 	'''Allows connection to a PMAC via RS232.'''
 
@@ -812,7 +814,8 @@ class PmacSerialInterface(RemotePmacInterface):
 		except serial.SerialException, e:
 			errorMsg = e
 			raise IOError('Communication with PMAC broken: %s' % errorMsg)
-			return str(returnStr)
+
+		return str(returnStr)
 
 ## \file
 # \section License
