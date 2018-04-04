@@ -1,6 +1,6 @@
 #!/bin/env dls-python
 
-import sys, re, socket, select, random, struct, errno
+import sys, re, socket, select, random, struct, errno, serial
 import threading, time
 import telnetlib
 
@@ -13,6 +13,27 @@ class RemotePmacInterface:
 	   session or Ethernet), to disconnect, and to issue commands. It provides
            methods for some basic axis commands (e.g. move/jog axis etc.).  It is
            a base class that should not be instantiated directly.'''
+	PMAC_errors = {
+"ERR001": "Command not allowed during program execution",
+"ERR002": "Password error",
+"ERR003": "Data error or unrecognized command",
+"ERR004": "Illegal character: bad value (>127 ASCII) or serial parity/framing error",
+"ERR005": "Command not allowed unless buffer is open",
+"ERR006": "No room in buffer for command",
+"ERR007": "Buffer already in use",
+"ERR008": "MACRO auxiliary communications error",
+"ERR009": "Program structural error",
+"ERR010": "Both overtravel limits set for a motor in the C.S.",
+"ERR011":"Previous move not completed",
+"ERR012": "A motor in the coordinate system is open-loop",
+"ERR013": "A motor in the coordinate system is not activated",
+"ERR014": "No motors in the coordinate system",
+"ERR015": "Not pointing to valid program buffer",
+"ERR016": "Running improperly structured program",
+"ERR017": "Trying to resume after H or Q with motors out of stopped position",
+"ERR018": "Attempt to perform phase reference during move, move during phase reference., or enabling with phase clock error.",
+"ERR019": "Illegal position-change command while moves stored in CCBUFFER"
+	}
 	def __init__(self, parent = None, verbose = False, numAxes = None, timeout = 3.0):
 		# Basic connection settings
 		self.verboseMode = verbose
@@ -674,8 +695,123 @@ class PmacTelnetInterface(RemotePmacInterface):
 		except:
 			raise IOError('Communication with PMAC broken.')
 		if returnMatchNo == -1:
-			raise IOError('Timed out waiting for expected response. Got only: ' + str(returnStr))
+			raise IOError('Timed out waiting for expected response. Got only: "%s"' % returnStr)
 		else:
+			return str(returnStr)
+class PmacSerialInterface(RemotePmacInterface):
+	'''Allows connection to a PMAC via RS232.'''
+
+	lstRegExps = [
+		# 0: Error message
+		re.compile( r'\aERR\d{3}\r' ),
+		# 1: One hex number with leading $
+		re.compile( r'^\$[A-Z0-9]+\r\x06' ),
+		# 2: one decimal number possible sign and possible dot, followed by possible spaces
+		re.compile( r'^-?(\d*\.)?\d+\s*\r\x06' ),
+		# 3: return value of the status, position, velocity, fol. err command #x?PVF
+		re.compile( r'^[A-Z0-9]+\r-?(\d*\.)?\d+\r-?(\d*\.)?\d+\r-?(\d*\.)?\d+\r\x06' ),
+		# 4: everything else... (things not covered above plus commands with no return value)
+		re.compile( r'\x06' )
+	]
+
+	# connect to the telnet session.
+	# Returns None if success. Error string if no connection parameters are set or if failure.
+	def connect(self):
+		''' Connect here '''
+		# used same class attributes as other PMAC classes for getting data from GUI...lazy and confusing here!
+		self.baud_rate = self.port 
+		self.comm_port = self.hostname
+
+		self.last_received_packet = ""
+		self.last_comm_time = 0.0
+		self.n_timeouts = 0
+		#self.transmission_delay = 0.0001 #1.2*9.0/float(self.baud_rate)
+		try:		
+			self.serial = serial.Serial(self.comm_port, self.baud_rate, timeout=self.timeout, rtscts=True, dsrdtr=True)
+		except serial.serialutil.SerialException:
+			return 'Port already in use!'		
+				
+		if self.isConnectionOpen:
+			return 'Socket is already open'
+
+		self.isConnectionOpen = True
+
+		# Check flow of serial comm by trying a basic "ver" command (which returns firmware version)
+		try:
+			response = self._sendCommand("ver")
+		except IOError, e:
+			self.isConnectionOpen = False
+			print e.strerror
+			raise e
+			#return "Error: did not get expected response from PMAC command \"ver\".\n\nMaybe someone is connected to the port already,\nor you are connecting to a wrong serial port,\nor the port is misconfigured (e.g. wrong baud rate)."
+
+	# disconnect from the telnet session
+	def disconnect(self):
+		if self.isConnectionOpen:
+			self.isConnectionOpen = False
+			self.semaphore.acquire()
+			self.serial.close()
+			self.semaphore.release()
+
+	# Send a single telnet command to the controller and wait for
+	# the expected result returned by the controler.
+	def _sendCommand( self, command, shouldWait = True, doubleTimeout = False):
+		command = str(command)
+		messageTimeout = self.timeout
+		if doubleTimeout:
+			messageTimeout *= 2
+		
+		try:
+			try:
+				if shouldWait:
+					self.semaphore.acquire()
+				comms_start = time.time()	
+				# clear the input queue of orphaned replies to
+				# any previous messages (this can happen if
+				# the previous message timed out before 
+				# receiving its reply).
+				if self.serial.inWaiting():
+					orphanedMsg = self.serial.readline()
+					if self.verboseMode:
+						print "Received unexpected output from PMAC, discarding: %r" % orphanedMsg
+
+				# write the command to PMAC
+				command = command  + '\r'
+				for letter in command:
+					self.serial.write(letter)
+					# need to enforce pause to allow for transmission time of characters (for Clipper at least)
+					# time.sleep(self.transmission_delay)
+				if self.verboseMode:
+					print 'Sent out: %r' % command				
+		
+				# read reply one character at a time, stopping at terminate char '\x06' or if timeout is exceeded
+				# N.B. probably could do this more robustly/quickly with file i/o or built-ins 
+				returnStr = ''
+				char = ''
+				read_start = time.time()
+				while char != '\x06' and time.time()-read_start < messageTimeout:
+					char = self.serial.read()
+					returnStr = returnStr + char				
+				returnMatchNo = [x for x in range(0,5) if self.lstRegExps[x].search(returnStr)]
+
+				if time.time()-read_start > messageTimeout:
+					self.n_timeouts = self.n_timeouts + 1
+					print 'Warning: Communication Timeout! (#%s)' % self.n_timeouts	
+
+				if returnMatchNo == [0]:
+					print "PMAC returned error: %s (%s)" % (returnStr[1:-1], self.PMAC_errors[returnStr[1:-1]])
+				elif self.verboseMode:
+					if not returnMatchNo:					
+						print 'Bad or no response from PMAC: "%s"' % returnStr		
+					else:					
+						print 'Received: %r (total duration %s seconds, %s)' % (returnStr, str(time.time()-comms_start), returnMatchNo)
+				self.last_comm_time = time.time()
+			finally:
+				if shouldWait:
+					self.semaphore.release()
+		except serial.SerialException, e:
+			errorMsg = e
+			raise IOError('Communication with PMAC broken: %s' % errorMsg)
 			return str(returnStr)
 
 ## \file
