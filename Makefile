@@ -34,6 +34,7 @@ clean:
 
 # Install the built egg and keep track of what was installed
 install: dist
+	mkdir -p $(PREFIX)/lib/python2.7/site-packages
 	$(PYTHON) setup.py easy_install -m \
 		--record=installed.files \
 		--prefix=$(PREFIX) dist/*.egg        
