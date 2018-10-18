@@ -10,6 +10,7 @@ setup(
     description = 'Module',
     author = 'fgz73762',
     author_email = 'fgz73762@rl.ac.uk',    
+    install_requires = ['pyserial==3.4'],
     packages = ['dls_pmaclib'],
     zip_safe = False
     )        
