@@ -1,5 +1,3 @@
-#!/bin/env dls-python
-
 import sys, re, socket, select, random, struct, errno, serial
 import threading, time
 import telnetlib

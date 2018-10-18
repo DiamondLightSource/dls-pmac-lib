@@ -1,4 +1,3 @@
-#!/bin/env dls-python2.6
 import optparse, re, sys, os
 from optparse import OptionParser
 
