@@ -1,21 +1,33 @@
-import sys, re, socket, select, random, struct, errno, serial
-import threading, time
+import errno
+import re
+import socket
+import struct
+import sys
 import telnetlib
+import threading
+import time
+import serial
 
 
 class IOPmacSentNullError(IOError):
     pass
 
 
+CHAR_ACK = 6
+CHAR_RETURN = 13
+CHAR_NULL = 0
+ENCODING = 'utf-8'
+
+
 # noinspection PyPep8Naming
 class RemotePmacInterface:
-    '''This class provides a common interface to a remote PMAC. It provides
+    """This class provides a common interface to a remote PMAC. It provides
     methods
            to connect to the PMAC (e.g. via a Telnet terminal server
        session or Ethernet), to disconnect, and to issue commands. It provides
            methods for some basic axis commands (e.g. move/jog axis etc.).
            It is
-           a base class that should not be instantiated directly.'''
+           a base class that should not be instantiated directly."""
     PMAC_errors = {
         "ERR001": "Command not allowed during program execution",
         "ERR002": "Password error",
@@ -158,7 +170,7 @@ class RemotePmacInterface:
     # Send a single command to the controller and block until a response from
     # the controller.
     # This is the actual method that does the I/O with the remote PMAC,
-    # and needs to be overriden in a child class;
+    # and needs to be overridden in a child class;
     # each read/write cycle should be implemented to block.
     # Returns: a string with PMAC's response to the command.
     # Throws: an IOError if any I/O-related error occured.
@@ -176,7 +188,7 @@ class RemotePmacInterface:
             if not wasSuccessful:
                 raise IOError('Error talking to PMAC')
 
-            mo = re.compile('^(\d+)\r\x06$').match(retStr)
+            mo = re.compile(r'^(\d+)\r\x06$').match(retStr)
             if not mo:
                 raise ValueError(
                     'Received malformed input from PMAC (%r)' % retStr)
@@ -530,6 +542,7 @@ class RemotePmacInterface:
 # noinspection PyPep8Naming
 class PmacEthernetInterface(RemotePmacInterface):
     '''Allows connection to a PMAC over an Ethernet interface.'''
+    sock = None
 
     # Attempts to open a connection to a remote PMAC.
     # Returns None on success, or an error message string on failure.
@@ -656,11 +669,14 @@ class PmacEthernetInterface(RemotePmacInterface):
                         'Did not respond - PMAC busy or connection lost')  #
                     # connection lost or PMAC busy
 
-                if short_response and (returnStr[len(returnStr) - 1] != '\x06'):
-                    raise IOError('Malformed response')  # weird error
+                if short_response and (returnStr[len(returnStr) - 1] !=
+                                       CHAR_ACK):
+                    print("Warning: request: {}\nresponse "
+                          "{} did not Ack".format(command, returnStr))
 
                 short_response = short_response and (len(returnStr) > 1)
-                if short_response and (returnStr[len(returnStr) - 2] != '\r'):
+                if short_response and (returnStr[len(returnStr) - 2] !=
+                                       CHAR_RETURN):
                     raise IOError(
                         'Truncated short response')  # truncation error in
                     # short response
@@ -670,32 +686,31 @@ class PmacEthernetInterface(RemotePmacInterface):
                 # 	returnStr[len(returnStr) - 1] == 0x0D (CTRL_M, '\r') =>
                 # 	timeout or error
                 # 	neither => continue receiving data
-                enterLoop = (returnStr[len(returnStr) - 1] != '\x06')
+                enterLoop = (returnStr[len(returnStr) - 1] != CHAR_ACK)
                 enterLoop = enterLoop and (
-                        returnStr[len(returnStr) - 1] != '\x0D')
+                        returnStr[len(returnStr) - 1] != CHAR_RETURN)
                 while enterLoop:
                     self.sock.sendall(getbufferRequest())
                     tmp = self.sock.recv(2048)
-                    if len(tmp) < 1400 and tmp[len(tmp) - 1] == '\x00':
+                    if len(tmp) < 1400 and tmp[len(tmp) - 1] == CHAR_NULL:
                         raise IOPmacSentNullError('Connection to PMAC lost')
                     returnStr = returnStr + tmp
-                    enterLoop = (returnStr[len(returnStr) - 1] != '\x06')
+                    enterLoop = (returnStr[len(returnStr) - 1] != CHAR_ACK)
                     enterLoop = enterLoop and (
-                            returnStr[len(returnStr) - 1] != '\x0D')
+                            returnStr[len(returnStr) - 1] != CHAR_RETURN)
 
-                if returnStr[len(
-                        returnStr) - 1] == '\x0D':  # stopped looping because
-                    # of either timeout or error
+                if returnStr[len(returnStr) - 1] == 'CHAR_RETURN':
+                    # stopped looping because of either timeout or error
                     raise IOError('PMAC communication error')
 
                 if (len(returnStr) > 1) and (returnStr[len(
-                        returnStr) - 2] != '\r'):  # truncation error in
+                        returnStr) - 2] != CHAR_RETURN):  # truncation error in
                     # multi-buffer response
-                    returnStr = returnStr[:len(
-                        returnStr) - 1] + ' WARNING: response truncated.' + \
+                    returnStr = returnStr[:len(returnStr) - 1] + \
+                                ' WARNING: response truncated.'.encode() + \
                                 returnStr[len(returnStr) - 1]
 
-                return returnStr
+                return returnStr.decode()
             finally:
                 if doubleTimeout:
                     self.sock.settimeout(self.timeout)
@@ -732,7 +747,7 @@ class PmacTelnetInterface(RemotePmacInterface):
     # connect to the telnet session.
     # Returns None if success. Error string if no connection parameters are
     # set or if failure.
-    def connect(self):
+    def connect(self, updatesReadyEvent=None):
         self.tn = telnetlib.Telnet()
         if self.hostname:
             try:
@@ -741,18 +756,19 @@ class PmacTelnetInterface(RemotePmacInterface):
                 else:
                     self.tn.open(self.hostname)
             except:
-                if sys.last_type == socket.gaierror:
+                exception_type, _, _ = sys.exc_info()
+                if exception_type == socket.gaierror:
                     retStr = "ERROR: could not open telnet session. Unknown " \
                              "host or addressing problem."
                     print(retStr)
-                elif sys.last_type == socket.error:
+                elif exception_type == socket.error:
                     retStr = "ERROR: could not open telnet session. " \
                              "Connection refused."
                     print(retStr)
                 else:
                     retStr = "ERROR: Could not open telnet session."
                     print(retStr)
-                retStr += "\nException thrown: " + str(sys.last_type)
+                retStr += "\nException thrown: " + str(exception_type)
                 self.tn.close()
                 return retStr
         else:
@@ -819,8 +835,7 @@ class PmacTelnetInterface(RemotePmacInterface):
                 if shouldWait:
                     self.semaphore.release()
         except socket.error as e:
-            errorMsg = e[1]
-            raise IOError('Communication with PMAC broken: %s' % errorMsg)
+            raise IOError('Communication with PMAC broken: %s' % e)
         except:
             raise IOError('Communication with PMAC broken.')
         if returnMatchNo == -1:
@@ -942,7 +957,7 @@ class PmacSerialInterface(RemotePmacInterface):
                 while char != '\x06' and time.time() - read_start < \
                         messageTimeout:
                     char = self.serial.read()
-                    returnStr = returnStr + char
+                    returnStr = returnStr + char.decode()
                 returnMatchNo = [x for x in range(0, 5) if
                                  self.lstRegExps[x].search(returnStr)]
 
