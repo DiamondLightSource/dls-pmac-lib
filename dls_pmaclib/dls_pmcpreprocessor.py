@@ -1,22 +1,27 @@
-import optparse, re, sys, os
-from optparse import OptionParser
+import os
+
+import re
 
 
-class clsPmacParser:
-    '''A class that pre-processes Delta-Tau 'pmc' files by making macro
-       substitutions and expanding included files (and nested include
-       files as deep as necessary).  It may optionally
-       strip comments and insert simulation debug information. '''
-
+class ClsPmacParser:
+    """
+    A class that pre-processes Delta-Tau 'pmc' files by making macro
+    substitutions and expanding included files (and nested include
+    files as deep as necessary).  It may optionally
+    strip comments and insert simulation debug information.
+    """
 
     def __init__(self, includePaths=None):
-        '''Create an instance of the preprocessor.  Specify the paths
-           to search for include files using the 'includePaths' parameter
-           which should be a list of strings, each one specifying a
-           path (the current directory is automatically included in
-           the search).'''
+        """
+        Create an instance of the preprocessor.  Specify the paths
+        to search for include files using the 'includePaths' parameter
+        which should be a list of strings, each one specifying a
+        path (the current directory is automatically included in
+        the search).
+        """
         self.fPtr = None
         self.oPtr = None
+        self.output = []
         self.includePaths = ["/"]
         if includePaths:
             self.includePaths.extend(includePaths)
@@ -33,24 +38,25 @@ class clsPmacParser:
         self.getCommand = re.compile(
             r'^.*(?=;)|^.*$')  # find command in a line and ignore any comments
 
-
     def parse(self, pmcFileName, defines=None, comments=False, debug=False):
-        '''Expand a 'pmc' file.  The 'pmcFileName' is opened and processed into
-           expanded text which is returned.  An map of predefined macro expansions
-           may be passed ('defines'), along with the booleans 'comments' and 'debug'
-           which control the stripping of comments and the insertion of simulation
-           debug information respectively.'''
-        self.output = []
-        if defines == None:
+        """
+        Expand a 'pmc' file.  The 'pmcFileName' is opened and processed
+        into expanded text which is returned.  An map of predefined macro
+        expansions may be passed ('defines'), along with the booleans
+        'comments' and 'debug' which control the stripping of comments and
+        the insertion of simulation debug information respectively.
+        """
+        if defines is None:
             defines = {}
 
         try:
             self.fPtr = open(pmcFileName, 'r')
-        except:
-            print("Error: could not open file: %s" % (pmcFileName))
+        except OSError:
+            print("Error: could not open file: %s" % pmcFileName)
             return None
 
-        self.includePaths.insert(0, os.path.dirname(os.path.abspath(pmcFileName)))
+        self.includePaths.insert(0,
+                                 os.path.dirname(os.path.abspath(pmcFileName)))
 
         lineNumber = 0
         for inLine in self.fPtr:
@@ -61,8 +67,8 @@ class clsPmacParser:
                     ';#* %s %s' % (os.path.abspath(pmcFileName), lineNumber))
 
             # for annoyingChar in ['\r','\n','\t']:
-            #	inLine = inLine.strip(annoyingChar)		# remove annoying white
-            #	space characters
+            # inLine = inLine.strip(annoyingChar)		# remove annoying white
+            # space characters
             if not comments:
                 inLine = inLine.split(';')[0]  # remove comments
 
@@ -75,15 +81,17 @@ class clsPmacParser:
                 self.output.append('')
                 for defineStatement in self.getDefine.findall(inLine):
                     defineStatement = defineStatement.strip()
-                    defines.update({self.splitDefine.split(defineStatement, 1)[
-                                        0]: self.substitute_macros(defines,
-                                                                   self.splitDefine.split(
-                                                                       defineStatement,
-                                                                       1)[1])})
+                    defines.update(
+                        {self.splitDefine.split(defineStatement, 1)[0]:
+                            self.substitute_macros(
+                                defines, self.splitDefine.split(
+                                    defineStatement, 1)[
+                                    1])})
                 continue
 
             # Match and substitute #include statements
             if self.includeLine.match(inLine):
+                foundFileInPaths = False
                 for includeFile in self.getInclude.findall(inLine):
                     includeFile = includeFile.strip(' "\r')
                     for path in self.includePaths:
@@ -95,13 +103,14 @@ class clsPmacParser:
                             # print "Found file in path: %s"%(path)
                             break
                     if not foundFileInPaths:
-                        print(";WARNING: Could not find include file: %s" % repr(
-                            includeFile))
+                        print(
+                            ";WARNING: Could not find include file: %s" % repr(
+                                includeFile))
                         self.output.append('')
                         continue
 
-                    print(";Parsing include file: %s" % (includeFile))
-                    p = clsPmacParser(self.includePaths)
+                    print(";Parsing include file: %s" % includeFile)
+                    p = ClsPmacParser(self.includePaths)
                     includeLines = p.parse(includeFile, defines=defines,
                                            comments=comments, debug=debug)
                     if includeLines:
@@ -122,10 +131,10 @@ class clsPmacParser:
         return self.output
         # print defines
 
-
-    def substitute_macros(self, macro_dict, text):
-        '''Expands any macros defined by 'macro_dict' in the given 'text'.
-           The expanded text is returned.'''
+    @staticmethod
+    def substitute_macros(macro_dict, text):
+        """Expands any macros defined by 'macro_dict' in the given 'text'.
+           The expanded text is returned."""
         out_text = text
         sorted_macros = [(len(x), x) for x in macro_dict.keys()]
         sorted_macros.sort()
@@ -134,13 +143,12 @@ class clsPmacParser:
             out_text = out_text.replace(macro[1], macro_dict[macro[1]])
         return out_text
 
-
     def saveOutput(self, outputFile=None):
-        '''Writes the processed output to the specified file.'''
+        """Writes the processed output to the specified file."""
         if outputFile:
             try:
                 self.oPtr = open(outputFile, 'w')
-            except:
+            except OSError:
                 print("Error: Could not open output file for write access.")
                 return None
 
@@ -153,7 +161,7 @@ class clsPmacParser:
                 print(line)
         return 0
 
-## \file
+# \file
 # \section License
 # Author: Diamond Light Source, Copyright 2011
 #

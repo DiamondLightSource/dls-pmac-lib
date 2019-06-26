@@ -1,12 +1,13 @@
 import errno
-import re
-import socket
 import struct
 import sys
 import telnetlib
+
+import re
+import serial
+import socket
 import threading
 import time
-import serial
 
 
 class IOPmacSentNullError(IOError):
@@ -90,6 +91,13 @@ class RemotePmacInterface:
                                            21, 24, 25, 28, 29, 32, 33, 36, 37,
                                            40, 41, 44, 45, 48, 49, 52, 53, 56,
                                            57, 60, 61, 64, 65]
+        self.baud_rate = None
+        self.comm_port = None
+
+        self.last_received_packet = None
+        self.last_comm_time = None
+        self.n_timeouts = None
+        self.serial = None
 
     def setConnectionParams(self, host="localhost", port=None):
         self.hostname = str(host)
@@ -239,7 +247,7 @@ class RemotePmacInterface:
             # If self._isModelGeobrick is not initialised, do so now
             geobrickModelCodes = [602404, 603382]
             self._isModelGeobrick = self.getPmacModelCode() in \
-                                    geobrickModelCodes
+                geobrickModelCodes
         return self._isModelGeobrick
 
     # Get the number of macro stations available. This is given by number of
@@ -265,7 +273,7 @@ class RemotePmacInterface:
 
     # Get the total number of axes available
     def getNumberOfAxes(self):
-        if self._numAxes == None:
+        if self._numAxes is None:
             if self.isModelGeobrick():
                 self._numAxes = 8 + self._getNumberOfMacroStationAxes()
             else:
@@ -332,7 +340,7 @@ class RemotePmacInterface:
     def getAxisSetupIVars(self, axis, offsets):
         self.checkAxisIsInRange(axis)
         base = 100 * axis
-        return self.getIVars(100 * axis, offsets)
+        return self.getIVars(base, offsets)
 
     def setAxisSetupIVar(self, axis, offset, value):
         self.checkAxisIsInRange(axis)
@@ -405,8 +413,8 @@ class RemotePmacInterface:
             # Because we have acquired the semaphore already, we do not wait
             # for it again.
             (lineNumber, command) = cmd
-            (pmacResponseStr, wasSuccessful) = self.sendCommand(command,
-                                                                shouldWait=False)
+            (pmacResponseStr, wasSuccessful) = self.sendCommand(
+                command, shouldWait=False)
             # Check if PMAC returns an error as a response; if so, append the
             # error message to the error list
             if not wasSuccessful or errRegExp.findall(pmacResponseStr):
@@ -431,7 +439,8 @@ class RemotePmacInterface:
 
     # Controls whether to wait for double the normal timeout for this
     # message. Currently only used for the SAVE command.
-    def commandNeedsDoubleTimeout(self, command):
+    @staticmethod
+    def commandNeedsDoubleTimeout(command):
         return 'SAVE' in command.upper()
 
     # Jog incrementally
@@ -448,17 +457,17 @@ class RemotePmacInterface:
                 direction), False
 
         (retStr, retStatus) = self.sendCommand(cmd)
-        return (cmd, retStr, retStatus)
+        return cmd, retStr, retStatus
 
     def jogStop(self, motor):
         cmd = "#" + str(motor) + "J/"
         (retStr, retStatus) = self.sendCommand(cmd)
-        return (cmd, retStr, retStatus)
+        return cmd, retStr, retStatus
 
-    def jogTo(self, motor, newposition):
-        cmd = "#" + str(motor) + "J=" + str(newposition)
+    def jogTo(self, motor, new_position):
+        cmd = "#" + str(motor) + "J=" + str(new_position)
         (retStr, retStatus) = self.sendCommand(cmd)
-        return (cmd, retStr, retStatus)
+        return cmd, retStr, retStatus
 
     def jogContinous(self, motor, direction):
         if direction == "neg":
@@ -470,12 +479,12 @@ class RemotePmacInterface:
                 direction), False
 
         (retStr, retStatus) = self.sendCommand(cmd)
-        return (cmd, retStr, retStatus)
+        return cmd, retStr, retStatus
 
     def homeCommand(self, motor):
         cmd = "#" + str(motor) + "HM"
         (retStr, retStatus) = self.sendCommand(cmd)
-        return (cmd, retStr, retStatus)
+        return cmd, retStr, retStatus
 
     def disableLimits(self, motor, disable):
         motor = str(motor)
@@ -541,7 +550,7 @@ class RemotePmacInterface:
 
 # noinspection PyPep8Naming
 class PmacEthernetInterface(RemotePmacInterface):
-    '''Allows connection to a PMAC over an Ethernet interface.'''
+    """Allows connection to a PMAC over an Ethernet interface."""
     sock = None
 
     # Attempts to open a connection to a remote PMAC.
@@ -586,7 +595,7 @@ class PmacEthernetInterface(RemotePmacInterface):
         except IOError:
             self.disconnect()
             return 'Device failed to respond to a "ver" command'
-        if not re.match('^\d+\.\d+\s*\r\x06$', response):
+        if not re.match(r'^\d+\.\d+\s*\r\x06$', response):
             # if the response is not of the form "1.945  \r\x06" then we're
             # not talking to a PMAC!
             print(response)
@@ -610,11 +619,11 @@ class PmacEthernetInterface(RemotePmacInterface):
         # of "Accessory 54E Ethernet Protocol User Manual":
         # S:/Technical/Controls/Delta Tau/DLS Motor Controller (Geobrick
         # LV-IMS)/Manuals/acc-54e rev2.pdf
-        def getresponseRequest(command):
-            assert type(command) == str
+        def getresponseRequest(cmd):
+            assert type(cmd) == str
             headerStr = struct.pack('8B', 0x40, 0xBF, 0x0, 0x0, 0x0, 0x0, 0x0,
-                                    len(command))
-            wrappedCommand = headerStr + bytes(command, 'utf-8')
+                                    len(cmd))
+            wrappedCommand = headerStr + bytes(cmd, 'utf-8')
             return wrappedCommand
 
         def getbufferRequest():
@@ -723,8 +732,8 @@ class PmacEthernetInterface(RemotePmacInterface):
 
 
 class PmacTelnetInterface(RemotePmacInterface):
-    '''Allows connection to a PMAC using a Telnet connection to a terminal
-    server session.'''
+    """Allows connection to a PMAC using a Telnet connection to a terminal
+    server session."""
     tn = None
 
     lstRegExps = [
@@ -779,7 +788,7 @@ class PmacTelnetInterface(RemotePmacInterface):
         # Check flow of serial comm by trying a basic "ver" command (which
         # returns firmware version)
         try:
-            response = self._sendCommand("ver")
+            self._sendCommand("ver")
         except IOError:
             self.isConnectionOpen = False
             return "Error: did not get expected response from PMAC command " \
@@ -847,7 +856,7 @@ class PmacTelnetInterface(RemotePmacInterface):
 
 
 class PmacSerialInterface(RemotePmacInterface):
-    '''Allows connection to a PMAC via RS232.'''
+    """Allows connection to a PMAC via RS232."""
 
     lstRegExps = [
         # 0: Error message
@@ -869,8 +878,8 @@ class PmacSerialInterface(RemotePmacInterface):
     # connect to the telnet session.
     # Returns None if success. Error string if no connection parameters are
     # set or if failure.
-    def connect(self):
-        ''' Connect here '''
+    def connect(self,  updatesReadyEvent=None):
+        """ Connect here """
         # used same class attributes as other PMAC classes for getting data
         # from GUI...lazy and confusing here!
         self.baud_rate = self.port
@@ -895,7 +904,7 @@ class PmacSerialInterface(RemotePmacInterface):
         # Check flow of serial comm by trying a basic "ver" command (which
         # returns firmware version)
         try:
-            response = self._sendCommand("ver")
+            self._sendCommand("ver")
         except IOError as e:
             self.isConnectionOpen = False
             print(e.strerror)
@@ -987,7 +996,7 @@ class PmacSerialInterface(RemotePmacInterface):
 
         return str(returnStr)
 
-## \file
+# \file
 # \section License
 # Author: Diamond Light Source, Copyright 2011
 #
