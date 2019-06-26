@@ -14,11 +14,11 @@ class IOPmacSentNullError(IOError):
     pass
 
 
-CHAR_ACK = 6
-CHAR_RETURN = 13
-CHAR_NULL = 0
-ENCODING = 'utf-8'
-
+CHAR_ACK = '\x06'
+CHAR_RETURN = '\x0D'
+CHAR_NULL = '\x00'
+CHAR_BELL = '\x07'
+VALID_ENDS = (CHAR_ACK, CHAR_RETURN, CHAR_BELL)
 
 # noinspection PyPep8Naming
 class RemotePmacInterface:
@@ -247,7 +247,7 @@ class RemotePmacInterface:
             # If self._isModelGeobrick is not initialised, do so now
             geobrickModelCodes = [602404, 603382]
             self._isModelGeobrick = self.getPmacModelCode() in \
-                geobrickModelCodes
+                                    geobrickModelCodes
         return self._isModelGeobrick
 
     # Get the number of macro stations available. This is given by number of
@@ -655,71 +655,69 @@ class PmacEthernetInterface(RemotePmacInterface):
                 else:
                     self.sock.settimeout(self.timeout)
 
-                self.sock.sendall(getresponseRequest(
-                    command))  # attept to send the whole packet
+                # attempt to send the whole packet
+                self.sock.sendall(getresponseRequest(command))
                 if self.verboseMode:
                     print('Sent out: %r' % command)
 
-                returnStr = receiveReliably(
-                    2048)  # wait for and read the response from PMAC (will
-                # be at most 1400 chars)
+                # wait for and read the response from PMAC (at most 1400 chars)
+                returnStr = receiveReliably(2048).decode()
 
                 if self.verboseMode:
                     print('Received: %r' % returnStr)
 
                 short_response = len(returnStr) < 1400
+                last_char = returnStr[len(returnStr) - 1]
+                response_len = len(returnStr)
 
-                if short_response and (returnStr[len(returnStr) - 1] == '\x0D'):
-                    raise IOError(
-                        'PMAC communication error')  # timeout or error
+                if short_response and (last_char == CHAR_RETURN):
+                    # timeout or error allow error responses to pass up
+                    pass
 
-                if short_response and (returnStr[len(returnStr) - 1] == '\x00'):
-                    raise IOPmacSentNullError(
-                        'Did not respond - PMAC busy or connection lost')  #
+                elif short_response and (last_char == CHAR_NULL):
                     # connection lost or PMAC busy
+                    raise IOPmacSentNullError(
+                        'Did not respond - PMAC busy or connection lost')
 
-                if short_response and (returnStr[len(returnStr) - 1] !=
-                                       CHAR_ACK):
-                    print("Warning: request: {}\nresponse "
-                          "{} did not Ack".format(command, returnStr))
-
-                short_response = short_response and (len(returnStr) > 1)
-                if short_response and (returnStr[len(returnStr) - 2] !=
-                                       CHAR_RETURN):
+                elif short_response and (last_char != CHAR_ACK) or \
+                        response_len == 0:
                     raise IOError(
-                        'Truncated short response')  # truncation error in
-                    # short response
+                        'PMAC communication error: unexpected terminator')
+
+                elif short_response and (len(returnStr) > 1) and (
+                        returnStr[len(returnStr) - 2] != CHAR_RETURN):
+                    # truncation error in short response
+                    raise IOError('Truncated short response')
 
                 # Possible return cases after self.sock.recv(bufsize):
                 # 	returnStr[len(returnStr) - 1] == 0x06 (CTRL_F) => DONE.
-                # 	returnStr[len(returnStr) - 1] == 0x0D (CTRL_M, '\r') =>
-                # 	timeout or error
+                # 	returnStr[len(returnStr) - 1] == 0x0D (CTRL_M) =>
+                # 	    timeout or error
                 # 	neither => continue receiving data
-                enterLoop = (returnStr[len(returnStr) - 1] != CHAR_ACK)
-                enterLoop = enterLoop and (
-                        returnStr[len(returnStr) - 1] != CHAR_RETURN)
-                while enterLoop:
-                    self.sock.sendall(getbufferRequest())
-                    tmp = self.sock.recv(2048)
-                    if len(tmp) < 1400 and tmp[len(tmp) - 1] == CHAR_NULL:
-                        raise IOPmacSentNullError('Connection to PMAC lost')
-                    returnStr = returnStr + tmp
-                    enterLoop = (returnStr[len(returnStr) - 1] != CHAR_ACK)
-                    enterLoop = enterLoop and (
-                            returnStr[len(returnStr) - 1] != CHAR_RETURN)
+                else:
+                    enterLoop = last_char not in VALID_ENDS
+                    while enterLoop:
+                        self.sock.sendall(getbufferRequest())
+                        tmp = self.sock.recv(2048).decode()
+                        if len(tmp) < 1400 and tmp[len(tmp) - 1] == CHAR_NULL:
+                            raise IOPmacSentNullError('Connection to PMAC lost')
+                        returnStr = returnStr + tmp
+                        last_char = returnStr[len(returnStr) - 1]
+                        enterLoop = last_char not in VALID_ENDS
 
-                if returnStr[len(returnStr) - 1] == 'CHAR_RETURN':
-                    # stopped looping because of either timeout or error
-                    raise IOError('PMAC communication error')
+                    if last_char == CHAR_RETURN:
+                        # stopped looping because of either timeout or error
+                        raise IOError('PMAC communication error')
 
-                if (len(returnStr) > 1) and (returnStr[len(
-                        returnStr) - 2] != CHAR_RETURN):  # truncation error in
-                    # multi-buffer response
-                    returnStr = returnStr[:len(returnStr) - 1] + \
-                                ' WARNING: response truncated.'.encode() + \
-                                returnStr[len(returnStr) - 1]
+                    if (len(returnStr) > 1) and (returnStr[len(
+                            returnStr) - 2] != CHAR_RETURN):
+                        # truncation error in multi-buffer response
+                        returnStr = returnStr[:len(returnStr) - 1] + \
+                                    ' WARNING: response truncated.' + \
+                                    returnStr[len(returnStr) - 1]
 
-                return returnStr.decode()
+                return returnStr
+
             finally:
                 if doubleTimeout:
                     self.sock.settimeout(self.timeout)
@@ -878,7 +876,7 @@ class PmacSerialInterface(RemotePmacInterface):
     # connect to the telnet session.
     # Returns None if success. Error string if no connection parameters are
     # set or if failure.
-    def connect(self,  updatesReadyEvent=None):
+    def connect(self, updatesReadyEvent=None):
         """ Connect here """
         # used same class attributes as other PMAC classes for getting data
         # from GUI...lazy and confusing here!
