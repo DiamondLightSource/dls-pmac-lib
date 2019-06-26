@@ -385,7 +385,7 @@ class RemotePmacInterface:
 
     # function that sends out a whole list of commands to the pmac
     # (like from a file...). The function waits for a response from each command
-    # and register any errors returned.
+    # and registers any errors returned.
     # After a command has been sent and a response received, the function
     # will post an event
     # to update the progress dialog in the main (GUI) thread.
