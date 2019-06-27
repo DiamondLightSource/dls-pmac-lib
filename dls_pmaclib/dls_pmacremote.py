@@ -18,7 +18,7 @@ CHAR_ACK = '\x06'
 CHAR_RETURN = '\x0D'
 CHAR_NULL = '\x00'
 CHAR_BELL = '\x07'
-VALID_ENDS = (CHAR_ACK, CHAR_RETURN, CHAR_BELL)
+VALID_ENDS = (CHAR_ACK, CHAR_RETURN)
 
 # noinspection PyPep8Naming
 class RemotePmacInterface:
@@ -698,10 +698,10 @@ class PmacEthernetInterface(RemotePmacInterface):
                     enterLoop = last_char not in VALID_ENDS
                     while enterLoop:
                         self.sock.sendall(getbufferRequest())
-                        tmp = self.sock.recv(2048).decode()
-                        if len(tmp) < 1400 and tmp[len(tmp) - 1] == CHAR_NULL:
+                        tmp = self.sock.recv(2048)
+                        if len(tmp) < 1400 and tmp[len(tmp) - 1] == 0:
                             raise IOPmacSentNullError('Connection to PMAC lost')
-                        returnStr = returnStr + tmp
+                        returnStr = returnStr + tmp.decode()
                         last_char = returnStr[len(returnStr) - 1]
                         enterLoop = last_char not in VALID_ENDS
 
