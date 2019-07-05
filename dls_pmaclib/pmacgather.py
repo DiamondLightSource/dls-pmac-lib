@@ -1,4 +1,5 @@
 from time import sleep
+from datetime import datetime, timedelta
 from .gatherchannel import dataSources, motorBaseAddrs, GatherChannel, WORD, \
     LONGWORD
 
@@ -15,6 +16,7 @@ class PmacGather:
         self.no_of_words = 0
         self.samples = 0
         self.sample_time = 0
+        self.start_time = datetime.now()
 
     def gatherConfig(self, axis_list, samples, sample_time):
         self.samples = samples
@@ -63,9 +65,17 @@ class PmacGather:
         cmd = "define gather %d" % gatherBufSize
         self.pmac.sendCommand(cmd)
 
-    def gatherTrigger(self):
+    def gatherWait(self):
+        wait_time = timedelta(milliseconds=self.sample_time * self.samples)
+        sleep_delta = datetime.now() - self.start_time + wait_time
+        if wait:
+            sleep(sleep_delta.seconds)
+
+    def gatherTrigger(self, wait=True):
+        self.start_time = datetime.now()
         self.pmac.sendCommand("gather")
-        sleep(self.sample_time * self.samples / 1000.0)
+        if wait:
+            self.gatherWait()
 
     def collectData(self):
         (retStr, status) = self.pmac.sendCommand("list gather")
