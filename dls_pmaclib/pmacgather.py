@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from .gatherchannel import dataSources, motorBaseAddrs, GatherChannel, WORD, \
     LONGWORD
 
+BRICK_CLOCK = 5000  # servo loop speed in Hz
 
 class PmacGather:
     """
@@ -66,10 +67,10 @@ class PmacGather:
         self.pmac.sendCommand(cmd)
 
     def gatherWait(self):
-        wait_time = timedelta(milliseconds=self.sample_time * self.samples)
-        sleep_delta = datetime.now() - self.start_time + wait_time
-        if wait:
-            sleep(sleep_delta.seconds)
+        wait_time = self.samples / (BRICK_CLOCK/self.sample_time)
+        sleep_delta = wait_time - (datetime.now() - self.start_time).seconds
+        if sleep_delta > 0:
+            sleep(sleep_delta)
 
     def gatherTrigger(self, wait=True):
         self.start_time = datetime.now()
@@ -86,9 +87,10 @@ class PmacGather:
                 lstDataStrings.append(long_val.strip()[6:])
                 lstDataStrings.append(long_val.strip()[:6])
         else:
-            print("Problem retrieving gather buffer, status: ",
-                  status, " returned data: ", retStr)
-            return False
+            error = "Problem retrieving gather buffer, status: {} " \
+                " returned data: {}".format(status, retStr)
+            error += "\nNOTE: make sure no other software is polling the brick"
+            raise ValueError(error)
 
         return lstDataStrings
 
