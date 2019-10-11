@@ -1,4 +1,7 @@
-#!/bin/env/python2.6
+from logging import getLogger
+
+log = getLogger("dls_pmaclib")
+
 WORD = 24
 LONGWORD = 48
 # initialise the data addresses that the PMAC can gather from
@@ -93,7 +96,7 @@ class GatherChannel:
             self.dataWidth = LONGWORD
             self.dataType = float
         else:
-            print("### Error: Could not get data width and type from: %s" % (
+            log.error("### Error: Could not get data width and type from: %s" % (
                 addr))
 
         # Figure out what data the address point to
@@ -105,7 +108,7 @@ class GatherChannel:
         try:
             self.axisNo = motorBaseAddrs.index(mBaseAddr) + 1
         except:
-            print("#### Error: could not recognise motor base address: %X" % (
+            log.error("#### Error: could not recognise motor base address: %X" % (
                 mBaseAddr))
 
         # Get the data source info (unit, scaling algorithm and so on)
@@ -114,7 +117,7 @@ class GatherChannel:
                 self.dataSourceInfo = dataSrc
                 break
         if not self.dataSourceInfo:
-            print(
+            log.error(
                 "### Error: could not recognise data source type with reg "
                 "offset: %X" % (
                     self.regOffset))
@@ -141,7 +144,7 @@ class GatherChannel:
             signMask = 0x800000
             maxValue = 0xFFFFFF
         else:
-            print("### Error: did not have valid data width "
+            log.error("### Error: did not have valid data width "
                   "information (had %d)" % self.dataWidth)
             return None
 
@@ -169,7 +172,7 @@ class GatherChannel:
             while retries > 0 and not status:
                 (retStr, status) = self.pmac.sendCommand(ivar)
             if not status:
-                print("### Error: did not receive response to: %s" % ivar)
+                log.error("### Error: did not receive response to: %s" % ivar)
                 return None
             # if hex value...
             if retStr[0] == '$':
@@ -182,11 +185,11 @@ class GatherChannel:
         # and the algorithm as described in the pmac manual
         ivarFactors = tuple(ivarFactors)
         algorithm = self.dataSourceInfo['scalingCalc'] % ivarFactors
-        # print "Evaluating algorithm: %s"%( algorithm )
+        # log.error "Evaluating algorithm: %s"%( algorithm )
         try:
             self.scalingFactor = eval(algorithm)
         except:
-            print(
+            log.error(
                 "### Error: did not evaluate expression correctly. Expr: %s" % (
                     algorithm))
             return None
@@ -197,7 +200,7 @@ class GatherChannel:
         if not self.scalingFactor:
             self.getScalingFactor()
         if not self.rawData:
-            print("### Error: No raw data available to scale.")
+            log.error("### Error: No raw data available to scale.")
             return None
         if not self.scalingFactor:
             self.scaledData = self.rawData

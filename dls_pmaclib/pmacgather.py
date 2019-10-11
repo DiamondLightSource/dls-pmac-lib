@@ -124,6 +124,10 @@ class PmacGather:
                 continue
 
         for chIndex, ch in enumerate(self.channels):
-            ch.setStrData(lstDataArrays[chIndex])
-            ch.strToRaw()
-            ch.rawToScaled()
+            try:
+                ch.setStrData(lstDataArrays[chIndex])
+                ch.strToRaw()
+                ch.rawToScaled()
+            except ValueError:
+                # for debugging
+                pass

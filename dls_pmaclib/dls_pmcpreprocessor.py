@@ -1,7 +1,9 @@
 import os
+from logging import getLogger
 
 import re
 
+log = getLogger("dls_pmaclib")
 
 class ClsPmacParser:
     """
@@ -52,7 +54,7 @@ class ClsPmacParser:
         try:
             self.fPtr = open(pmcFileName, 'r')
         except OSError:
-            print("Error: could not open file: %s" % pmcFileName)
+            log.error("Error: could not open file: %s" % pmcFileName)
             return None
 
         self.includePaths.insert(0,
@@ -100,16 +102,16 @@ class ClsPmacParser:
                         if os.path.lexists(tmpFullFileName):
                             includeFile = tmpFullFileName
                             foundFileInPaths = True
-                            # print "Found file in path: %s"%(path)
+                            log.debug("Found file in path: %s", path)
                             break
                     if not foundFileInPaths:
-                        print(
-                            ";WARNING: Could not find include file: %s" % repr(
-                                includeFile))
+                        log.warning(
+                            ";WARNING: Could not find include file: %s",
+                            repr(includeFile))
                         self.output.append('')
                         continue
 
-                    print(";Parsing include file: %s" % includeFile)
+                    log.info(";Parsing include file: %s" % includeFile)
                     p = ClsPmacParser(self.includePaths)
                     includeLines = p.parse(includeFile, defines=defines,
                                            comments=comments, debug=debug)
@@ -149,7 +151,7 @@ class ClsPmacParser:
             try:
                 self.oPtr = open(outputFile, 'w')
             except OSError:
-                print("Error: Could not open output file for write access.")
+                log.error("Error: Could not open output file for write access.")
                 return None
 
         if self.oPtr:
