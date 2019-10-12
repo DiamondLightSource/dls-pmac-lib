@@ -12,6 +12,7 @@ import time
 
 log = getLogger("dls_pmaclib")
 
+
 class IOPmacSentNullError(IOError):
     pass
 
@@ -531,7 +532,8 @@ class RemotePmacInterface:
                 log.info('pmac.getAxisMacroStationNumber(%d) returns %s.' % (
                     i, repr(self.getAxisMacroStationNumber(i))))
             except Exception as e:
-                log.exception('pmac.getAxisMacroStationNumber(%d)', i)
+                log.debug('pmac.getAxisMacroStationNumber(%d)', i,
+                          exc_info=True)
 
     def testIsMacroStationAxis(self):
         for i in range(1, 33):
@@ -539,7 +541,7 @@ class RemotePmacInterface:
                 log.info('pmac.isMacroStationAxis(%d) returns %s.' % (
                     i, repr(self.isMacroStationAxis(i))))
             except Exception as e:
-                log.debug('pmac.isMacroStationAxis(%d)', i)
+                log.debug('pmac.isMacroStationAxis(%d)', i, exc_info=True)
 
     def runTests(self):
         log.info('______________________________________')
@@ -739,19 +741,20 @@ class PmacTelnetInterface(RemotePmacInterface):
 
     lstRegExps = [
         # 0: Error message
-        re.compile(r'\aERR\d{3}\r'),
+        re.compile(r'\aERR\d{3}\r'.encode('utf8')),
         # 1: One hex number with leading $
-        re.compile(r'^\$[A-Z0-9]+\r\x06'),
+        re.compile(r'^\$[A-Z0-9]+\r\x06'.encode('utf8')),
         # 2: one decimal number possible sign and possible dot, followed by
         # possible spaces
-        re.compile(r'^-?(\d*\.)?\d+\s*\r\x06'),
+        re.compile(r'^-?(\d*\.)?\d+\s*\r\x06'.encode('utf8')),
         # 3: return value of the status, position, velocity, fol. err command
         # #x?PVF
         re.compile(
-            r'^[A-Z0-9]+\r-?(\d*\.)?\d+\r-?(\d*\.)?\d+\r-?(\d*\.)?\d+\r\x06'),
+            r'^[A-Z0-9]+\r-?(\d*\.)?\d+\r-?(\d*\.)?\d+\r-?(\d*\.)?\d+\r'
+            r'\x06'.encode('utf8')),
         # 4: everything else... (things not covered above plus commands with
         # no return value)
-        re.compile(r'\x06')
+        re.compile(r'\x06'.encode('utf8'))
     ]
 
     # connect to the telnet session.
@@ -830,7 +833,7 @@ class PmacTelnetInterface(RemotePmacInterface):
                                 "discarding: %r" % orphanedMsg)
 
                 # write the command to PMAC
-                self.tn.write(command + '\r\n')
+                self.tn.write((command + '\r\n').encode('utf8'))
                 if self.verboseMode:
                     log.error('Sent out: %r' % command)
 
@@ -840,7 +843,7 @@ class PmacTelnetInterface(RemotePmacInterface):
                     self.lstRegExps, messageTimeout)
                 if self.verboseMode:
                     log.error('Received: %r' % returnStr)
-
+                returnStr = returnStr.decode('utf8')
             finally:
                 if shouldWait:
                     self.semaphore.release()
@@ -908,7 +911,9 @@ class PmacSerialInterface(RemotePmacInterface):
             self._sendCommand("ver")
         except IOError as e:
             self.isConnectionOpen = False
-            log.exception('send failed')
+            msg = 'send failed'
+            log.debug(msg, exc_info=True)
+            log.error(msg)
             raise e
             # return "Error: did not get expected response from PMAC command
             # \"ver\".\n\nMaybe someone is connected to the port already,
