@@ -52,7 +52,7 @@ class ClsPmacParser:
             defines = {}
 
         try:
-            self.fPtr = open(pmcFileName, 'r')
+            self.fPtr = open(pmcFileName, 'r', errors="backslashreplace")
         except OSError:
             log.error("Error: could not open file: %s" % pmcFileName)
             return None

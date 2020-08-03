@@ -4,10 +4,17 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
-pytest = "*"
+flake8 = "==3.7.9"
+pytest-cov = "*"
+pytest-black = "*"
+pytest-flake8 = "*"
+flake8-isort = "*"
+pytest-mypy = "*"
+sphinx-rtd-theme = "*"
+doc8 = "*"
 
 [packages]
 pyserial = "*"
 
-[requires]
-python_version = "3.7"
+[pipenv]
+allow_prereleases = true
