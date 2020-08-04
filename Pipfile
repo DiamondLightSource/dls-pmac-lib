@@ -18,7 +18,7 @@ pyserial = "*"
 [scripts]
 # Put coverage here so we don't interfere with debugging in the IDE
 pmac = "python dls_pmaclib/motor.py"
-tests = "python -m pytest --cov=dls_pmaclib --cov-report term --ignore prefix/"
+tests = "python -m pytest --cov=dls_pmaclib --cov-report term"
 docs = "sphinx-build -E -b html docs build/html"
 
 [pipenv]
