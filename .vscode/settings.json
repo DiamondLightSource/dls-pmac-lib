@@ -1,0 +1,13 @@
+{
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.enabled": true,
+  "python.testing.pytestArgs": [],
+  "python.testing.unittestEnabled": false,
+  "python.testing.nosetestsEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.formatting.provider": "black",
+  "python.jediEnabled": false,
+  "restructuredtext.confPath": "${workspaceFolder}/docs",
+  "python.pythonPath": "/scratch/sfx44126/pipenv/dls_pmaclib-LkGA4gdO/bin/python",
+}

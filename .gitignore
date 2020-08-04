@@ -1,7 +1,7 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*$py.class
+*.class
 
 # C extensions
 *.so
@@ -24,6 +24,16 @@ var/
 .installed.cfg
 *.egg
 
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
@@ -33,6 +43,28 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *,cover
+*.mypy_cache
+*.pytest_cache
+cov.xml
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# DLS build dir and virtual environment
+/prefix/
+/venv/
+/lightweight-venv/
+/installed.files
 
 # virtualenv
 venv/
@@ -41,6 +73,3 @@ ENV/
 *~
 .svn*
 .idea
-
-documentation/doxygen
-installed.files

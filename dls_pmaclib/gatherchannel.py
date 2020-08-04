@@ -5,39 +5,74 @@ log = getLogger("dls_pmaclib")
 WORD = 24
 LONGWORD = 48
 # initialise the data addresses that the PMAC can gather from
-motorBaseAddrs = [0x080, 0x100, 0x180, 0x200, 0x280, 0x300, 0x380, 0x400,
-                  0x480, 0x500, 0x580, 0x600, 0x680, 0x700, 0x780, 0x800,
-                  0x880, 0x900, 0x980, 0xA00, 0xA80, 0xB00, 0xB80, 0xC00,
-                  0xC80, 0xD00, 0xD80, 0xE00, 0xE80, 0xF00, 0xF80, 0x1000]
+motorBaseAddrs = [
+    0x080,
+    0x100,
+    0x180,
+    0x200,
+    0x280,
+    0x300,
+    0x380,
+    0x400,
+    0x480,
+    0x500,
+    0x580,
+    0x600,
+    0x680,
+    0x700,
+    0x780,
+    0x800,
+    0x880,
+    0x900,
+    0x980,
+    0xA00,
+    0xA80,
+    0xB00,
+    0xB80,
+    0xC00,
+    0xC80,
+    0xD00,
+    0xD80,
+    0xE00,
+    0xE80,
+    0xF00,
+    0xF80,
+    0x1000,
+]
 
 dataSources = [
-    {"reg": 0x08,
-     "desc": "Motor present desired position",
-     "unit": "cts]",
-     "size": 0x8,
-     "scalingCalc": "1.0/(%d*32.0)",
-     "scalingIvars": ("i%d08",)},
-
-    {"reg": 0x0B,
-     "desc": "Motor present actual position",
-     "unit": "[cts]",
-     "size": 0x8,
-     "scalingCalc": "1.0/(%d*32.0)",
-     "scalingIvars": ("i%d08",)},
-
-    {"reg": 0x11,
-     "desc": "Motor following error",
-     "unit": "[cts]",
-     "size": 0x8,
-     "scalingCalc": "1.0/(%d*32.0)",
-     "scalingIvars": ("i%d08",)},
-
-    {"reg": 0x1D,
-     "desc": "Motor present actual velocity (unfiltered)",
-     "unit": "[cts/servo cycle]",
-     "size": 0x4,
-     "scalingCalc": "1.0/(%d*32.0)/(%d+1)",
-     "scalingIvars": ("i%d09", "i%d60")}
+    {
+        "reg": 0x08,
+        "desc": "Motor present desired position",
+        "unit": "cts]",
+        "size": 0x8,
+        "scalingCalc": "1.0/(%d*32.0)",
+        "scalingIvars": ("i%d08",),
+    },
+    {
+        "reg": 0x0B,
+        "desc": "Motor present actual position",
+        "unit": "[cts]",
+        "size": 0x8,
+        "scalingCalc": "1.0/(%d*32.0)",
+        "scalingIvars": ("i%d08",),
+    },
+    {
+        "reg": 0x11,
+        "desc": "Motor following error",
+        "unit": "[cts]",
+        "size": 0x8,
+        "scalingCalc": "1.0/(%d*32.0)",
+        "scalingIvars": ("i%d08",),
+    },
+    {
+        "reg": 0x1D,
+        "desc": "Motor present actual velocity (unfiltered)",
+        "unit": "[cts/servo cycle]",
+        "size": 0x4,
+        "scalingCalc": "1.0/(%d*32.0)/(%d+1)",
+        "scalingIvars": ("i%d09", "i%d60"),
+    },
 ]
 
 
@@ -85,19 +120,18 @@ class GatherChannel:
             addr = ret_word[0:-1]
 
         # Get the data width and type from the first digit in the hex-value
-        lenWord = addr.strip('$')[0]
-        if lenWord == '0' or lenWord == '4':
+        lenWord = addr.strip("$")[0]
+        if lenWord == "0" or lenWord == "4":
             self.dataWidth = WORD
             self.dataType = int
-        elif lenWord == '8':
+        elif lenWord == "8":
             self.dataWidth = LONGWORD
             self.dataType = int
-        elif lenWord == 'C':
+        elif lenWord == "C":
             self.dataWidth = LONGWORD
             self.dataType = float
         else:
-            log.error("### Error: Could not get data width and type from: %s" % (
-                addr))
+            log.error("### Error: Could not get data width and type from: %s" % (addr))
 
         # Figure out what data the address point to
         dataAddr = int(addr[2:], 16)
@@ -107,20 +141,21 @@ class GatherChannel:
         mBaseAddr = dataAddr & 0xFFF80
         try:
             self.axisNo = motorBaseAddrs.index(mBaseAddr) + 1
-        except:
-            log.error("#### Error: could not recognise motor base address: %X" % (
-                mBaseAddr))
+        except Exception:
+            log.error(
+                "#### Error: could not recognise motor base address: %X" % (mBaseAddr)
+            )
 
         # Get the data source info (unit, scaling algorithm and so on)
         for dataSrc in dataSources:
-            if dataSrc['reg'] == self.regOffset:
+            if dataSrc["reg"] == self.regOffset:
                 self.dataSourceInfo = dataSrc
                 break
         if not self.dataSourceInfo:
             log.error(
                 "### Error: could not recognise data source type with reg "
-                "offset: %X" % (
-                    self.regOffset))
+                "offset: %X" % (self.regOffset)
+            )
 
         return
 
@@ -144,8 +179,10 @@ class GatherChannel:
             signMask = 0x800000
             maxValue = 0xFFFFFF
         else:
-            log.error("### Error: did not have valid data width "
-                  "information (had %d)" % self.dataWidth)
+            log.error(
+                "### Error: did not have valid data width "
+                "information (had %d)" % self.dataWidth
+            )
             return None
 
         # convert each hex string value to an integer with sign
@@ -159,7 +196,7 @@ class GatherChannel:
 
     def getScalingFactor(self):
         # if a scaling algorithm doesn't exist we just set scaling factor to 1
-        if 'scalingCalc' not in self.dataSourceInfo:
+        if "scalingCalc" not in self.dataSourceInfo:
             self.scalingFactor = 1.0
             return
 
@@ -167,7 +204,7 @@ class GatherChannel:
         ivarFactors = []
         retStr = None
         status, retries = False, 2  # fails 1st attempt after the gather ??
-        for partIvar in self.dataSourceInfo['scalingIvars']:
+        for partIvar in self.dataSourceInfo["scalingIvars"]:
             ivar = partIvar % self.axisNo
             while retries > 0 and not status:
                 (retStr, status) = self.pmac.sendCommand(ivar)
@@ -175,8 +212,8 @@ class GatherChannel:
                 log.error("### Error: did not receive response to: %s" % ivar)
                 return None
             # if hex value...
-            if retStr[0] == '$':
-                ivarFactor = int(retStr.strip('$'), 16)
+            if retStr[0] == "$":
+                ivarFactor = int(retStr.strip("$"), 16)
             else:
                 ivarFactor = float(retStr[:-1])
             ivarFactors.append(ivarFactor)
@@ -184,14 +221,15 @@ class GatherChannel:
         # calculate the final scaling factor from the ivar factors
         # and the algorithm as described in the pmac manual
         ivarFactors = tuple(ivarFactors)
-        algorithm = self.dataSourceInfo['scalingCalc'] % ivarFactors
+        algorithm = self.dataSourceInfo["scalingCalc"] % ivarFactors
         # log.error "Evaluating algorithm: %s"%( algorithm )
         try:
             self.scalingFactor = eval(algorithm)
-        except:
+        except Exception:
             log.error(
-                "### Error: did not evaluate expression correctly. Expr: %s" % (
-                    algorithm))
+                "### Error: did not evaluate expression correctly. Expr: %s"
+                % (algorithm)
+            )
             return None
 
         return
@@ -211,19 +249,20 @@ class GatherChannel:
             self.scaledData.append(rawVal * self.scalingFactor)
         return
 
+
 # \file
 # \section License
 # Author: Diamond Light Source, Copyright 2011
 #
-# 'dls_pmaccontrol' is free software: you can redistribute it and/or modify
+# 'dls_pmaclib' is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 #
-# 'dls_pmaccontrol' is distributed in the hope that it will be useful,
+# 'dls_pmaclib' is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
 # You should have received a copy of the GNU Lesser General Public License
-# along with 'dls_pmaccontrol'.  If not, see http://www.gnu.org/licenses/.
+# along with 'dls_pmaclib'.  If not, see http://www.gnu.org/licenses/.

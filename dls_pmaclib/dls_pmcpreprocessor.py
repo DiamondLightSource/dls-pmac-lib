@@ -1,9 +1,9 @@
 import os
+import re
 from logging import getLogger
 
-import re
-
 log = getLogger("dls_pmaclib")
+
 
 class ClsPmacParser:
     """
@@ -29,16 +29,15 @@ class ClsPmacParser:
             self.includePaths.extend(includePaths)
 
         # A couple of regular expressions for use in parsing the pmc file
-        self.blankLine = re.compile(r'^\s*$')  # match blank lines
-        self.defineLine = re.compile(
-            r'^#(define|DEFINE)\b')  # match macro define-lines
-        self.getDefine = re.compile(r'(?<=define\b|DEFINE\b).*$')
-        self.splitDefine = re.compile(r'[ \t]+')
-        self.includeLine = re.compile(
-            r'^#(include|INCLUDE)\b')  # match include-lines
-        self.getInclude = re.compile(r'(?<=include\b|INCLUDE\b).*$')
+        self.blankLine = re.compile(r"^\s*$")  # match blank lines
+        self.defineLine = re.compile(r"^#(define|DEFINE)\b")  # match macro define-lines
+        self.getDefine = re.compile(r"(?<=define\b|DEFINE\b).*$")
+        self.splitDefine = re.compile(r"[ \t]+")
+        self.includeLine = re.compile(r"^#(include|INCLUDE)\b")  # match include-lines
+        self.getInclude = re.compile(r"(?<=include\b|INCLUDE\b).*$")
         self.getCommand = re.compile(
-            r'^.*(?=;)|^.*$')  # find command in a line and ignore any comments
+            r"^.*(?=;)|^.*$"
+        )  # find command in a line and ignore any comments
 
     def parse(self, pmcFileName, defines=None, comments=False, debug=False):
         """
@@ -52,13 +51,12 @@ class ClsPmacParser:
             defines = {}
 
         try:
-            self.fPtr = open(pmcFileName, 'r')
+            self.fPtr = open(pmcFileName, "r")
         except OSError:
             log.error("Error: could not open file: %s" % pmcFileName)
             return None
 
-        self.includePaths.insert(0,
-                                 os.path.dirname(os.path.abspath(pmcFileName)))
+        self.includePaths.insert(0, os.path.dirname(os.path.abspath(pmcFileName)))
 
         lineNumber = 0
         for inLine in self.fPtr:
@@ -66,29 +64,33 @@ class ClsPmacParser:
             lineNumber += 1
             if debug:
                 self.output.append(
-                    ';#* %s %s' % (os.path.abspath(pmcFileName), lineNumber))
+                    ";#* %s %s" % (os.path.abspath(pmcFileName), lineNumber)
+                )
 
             # for annoyingChar in ['\r','\n','\t']:
             # inLine = inLine.strip(annoyingChar)		# remove annoying white
             # space characters
             if not comments:
-                inLine = inLine.split(';')[0]  # remove comments
+                inLine = inLine.split(";")[0]  # remove comments
 
             if self.blankLine.match(inLine):
-                self.output.append('')
+                self.output.append("")
                 continue
 
             # Match and substitute lines with #define statements in
             if self.defineLine.match(inLine):
-                self.output.append('')
+                self.output.append("")
                 for defineStatement in self.getDefine.findall(inLine):
                     defineStatement = defineStatement.strip()
                     defines.update(
-                        {self.splitDefine.split(defineStatement, 1)[0]:
-                            self.substitute_macros(
-                                defines, self.splitDefine.split(
-                                    defineStatement, 1)[
-                                    1])})
+                        {
+                            self.splitDefine.split(defineStatement, 1)[
+                                0
+                            ]: self.substitute_macros(
+                                defines, self.splitDefine.split(defineStatement, 1)[1]
+                            )
+                        }
+                    )
                 continue
 
             # Match and substitute #include statements
@@ -107,28 +109,32 @@ class ClsPmacParser:
                     if not foundFileInPaths:
                         log.warning(
                             ";WARNING: Could not find include file: %s",
-                            repr(includeFile))
-                        self.output.append('')
+                            repr(includeFile),
+                        )
+                        self.output.append("")
                         continue
 
                     log.info(";Parsing include file: %s" % includeFile)
                     p = ClsPmacParser(self.includePaths)
-                    includeLines = p.parse(includeFile, defines=defines,
-                                           comments=comments, debug=debug)
+                    includeLines = p.parse(
+                        includeFile, defines=defines, comments=comments, debug=debug
+                    )
                     if includeLines:
                         self.output.extend(includeLines)
                     else:
-                        self.output.append('')
+                        self.output.append("")
                 continue
 
             inLine = self.substitute_macros(defines, inLine)
-            for annoyingChar in ['\r', '\n', '\t', '\r\n']:
+            for annoyingChar in ["\r", "\n", "\t", "\r\n"]:
                 if comments:
                     inLine = inLine.rstrip(
-                        annoyingChar)  # remove annoying white space characters
+                        annoyingChar
+                    )  # remove annoying white space characters
                 else:
                     inLine = inLine.strip(
-                        annoyingChar)  # remove annoying white space characters
+                        annoyingChar
+                    )  # remove annoying white space characters
             self.output.append(inLine)
         return self.output
         # print defines
@@ -149,19 +155,20 @@ class ClsPmacParser:
         """Writes the processed output to the specified file."""
         if outputFile:
             try:
-                self.oPtr = open(outputFile, 'w')
+                self.oPtr = open(outputFile, "w")
             except OSError:
                 log.error("Error: Could not open output file for write access.")
                 return None
 
         if self.oPtr:
             for line in self.output:
-                self.oPtr.write(line + '\n')
+                self.oPtr.write(line + "\n")
             self.oPtr.close()
         else:
             for line in self.output:
                 print(line)
         return 0
+
 
 # \file
 # \section License

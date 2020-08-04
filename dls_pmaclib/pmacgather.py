@@ -1,9 +1,10 @@
+from datetime import datetime
 from time import sleep
-from datetime import datetime, timedelta
-from .gatherchannel import dataSources, motorBaseAddrs, GatherChannel, WORD, \
-    LONGWORD
+
+from .gatherchannel import LONGWORD, WORD, GatherChannel, dataSources, motorBaseAddrs
 
 BRICK_CLOCK = 5000  # servo loop speed in Hz
+
 
 class PmacGather:
     """
@@ -11,6 +12,7 @@ class PmacGather:
     relies on a dls_pmaclib.RemotePmacInterface for communicating with the
     brick
     """
+
     def __init__(self, pmac_remote):
         self.pmac = pmac_remote
         self.channels = []
@@ -27,7 +29,7 @@ class PmacGather:
         dataSource = 0  # desired position
         axis_bits = 0
         for a in range(len(axis_list)):
-            axis_bits |= (0x01 << a)
+            axis_bits |= 0x01 << a
 
         if axis_bits == 0:
             return False
@@ -41,9 +43,9 @@ class PmacGather:
         total_width = 0
         # set up each channel to gather demand position for the listed axes
         for index, axis in enumerate(axis_list):
-            dataOffset = dataSources[dataSource]['reg']
+            dataOffset = dataSources[dataSource]["reg"]
             baseAddress = motorBaseAddrs[axis - 1]
-            dataWidth = dataSources[dataSource]['size']
+            dataWidth = dataSources[dataSource]["size"]
             ivar = "i50%02d" % (index + 1)
             addr = "$%X%05X" % (dataWidth, baseAddress + dataOffset)
             cmd = "%s=%s" % (ivar, addr)
@@ -67,7 +69,7 @@ class PmacGather:
         self.pmac.sendCommand(cmd)
 
     def gatherWait(self):
-        wait_time = self.samples / (BRICK_CLOCK/self.sample_time)
+        wait_time = self.samples / (BRICK_CLOCK / self.sample_time)
         sleep_delta = wait_time - (datetime.now() - self.start_time).seconds
         if sleep_delta > 0:
             sleep(sleep_delta)
@@ -87,8 +89,10 @@ class PmacGather:
                 lstDataStrings.append(long_val.strip()[6:])
                 lstDataStrings.append(long_val.strip()[:6])
         else:
-            error = "Problem retrieving gather buffer, status: {} " \
+            error = (
+                "Problem retrieving gather buffer, status: {} "
                 " returned data: {}".format(status, retStr)
+            )
             error += "\nNOTE: make sure no other software is polling the brick"
             raise ValueError(error)
 
