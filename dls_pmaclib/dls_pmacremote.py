@@ -7,6 +7,7 @@ import telnetlib
 import threading
 import time
 from logging import getLogger
+from paramiko import SSHClient
 
 import serial
 
@@ -584,6 +585,129 @@ class RemotePmacInterface:
         self.testIsMacroStationAxis()
         self.testGetAxisMacroStationNumber()
 
+class PPmacSshInterface(RemotePmacInterface):
+
+    client = None
+
+    def start_gpascii(self):
+        print("Starting gpascii")
+        # Have to create a 'special shell' to invoke gpascii
+        self.gpascii_client = self.client.invoke_shell(term="vt100")
+        self.gpascii_client.send("gpascii -2\r\n")
+
+        # Have to wait a few seconds to make sure the gpascii command has been issued
+        # and we are 'in' to the ppmac. Wait from message 'STDIN Open for ASCII Input'
+        gpascii_issued = False
+        while not gpascii_issued:
+            # Decode response
+            time.sleep(0.1)
+            response = self.gpascii_client.recv(2048)
+            response = response.decode()
+            if "ASCII" in response:
+                gpascii_issued = True
+
+        print(" ... done")
+
+    def connect(self, updatesReadyEvent=None):
+
+        # Sanity checks
+        if self.isConnectionOpen:
+            return "Already connected"
+        if self.hostname in (None, ""):
+            return "ERROR: hostname not set"
+
+        # Create SSH client
+        print("Connection to '"+self.hostname+"'")
+        self.client = SSHClient()
+        self.client.load_system_host_keys()
+
+        # Connect to IP address with username and password
+        self.client.connect(self.hostname, username='root', password='deltatau')
+        print(" ... connected")
+
+        self.start_gpascii()
+
+        self.isConnectionOpen = True
+
+    def disconnect(self):
+        if self.isConnectionOpen:
+            self.semaphore.acquire()
+            print("Closing connection to '" + self.hostname + "'")
+            self.client.close()
+            self.semaphore.release()
+            self.isConnectionOpen = False
+            if self.verboseMode:
+                log.warning("Disconnected from " + self.hostname)
+
+    # Return a string designating which PMAC model this is, or None on error
+    def getPmacModel(self):
+        # Return a model designation based on model code
+        if self._pmacModelName is None:
+            modelNamesByCode = {
+                604020: "Power PMAC UMAC"
+            }
+
+            modelCode = self.getPmacModelCode()
+            try:
+                self._pmacModelName = modelNamesByCode[modelCode]
+            except KeyError:
+                raise ValueError("Unsupported Power PMAC model")
+
+        return self._pmacModelName
+
+    # Return a number designating which PMAC model this is, or Exception on
+    # error.
+    def getPmacModelCode(self):
+        # Ask for pmac model, returns an integer
+        if self._pmacModelCode is None:
+            (retStr, wasSuccessful) = self.sendCommand("cid")
+
+            if not wasSuccessful:
+                raise IOError("Error talking to Power PMAC")
+
+            #mo = re.compile(r"^(\d+)\r\x06$").match(retStr)
+            #if not mo:
+            #    raise ValueError("Received malformed input from PMAC (%r)" % retStr)
+
+            self._pmacModelCode = int(retStr)
+            #self._pmacModelCode = int(mo.group(1))
+
+            return self._pmacModelCode
+
+    def _sendCommand(self, command, shouldWait=True, doubleTimeout=False):
+
+        try:
+            if shouldWait:
+                self.semaphore.acquire()
+
+            #print("Sending command: " + command)
+
+            # Send a command
+            stringToSend = command + "\r\n"
+            try:
+                n = self.gpascii_client.send(stringToSend)
+
+                # Wait until we receive a response
+                while not self.gpascii_client.recv_ready():
+                    time.sleep(0.5)
+
+                responseBytes = self.gpascii_client.recv(2048)
+
+                # Decode
+                response = responseBytes.decode()
+                response = response[(n - 2):]
+                response = response.replace("\r\n\r\n", "")
+                response = response.replace("\r\n", "\r")
+                response = response.replace("\x06", "")
+
+                #print(" --> Received response: " + response)
+                return response
+            except:
+                print("Error")
+                return None
+        finally:
+            if shouldWait:
+                self.semaphore.release()
 
 # noinspection PyPep8Naming
 class PmacEthernetInterface(RemotePmacInterface):
