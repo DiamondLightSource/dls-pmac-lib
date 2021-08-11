@@ -606,6 +606,7 @@ class PPmacSshInterface(RemotePmacInterface):
             if "ASCII" in response:
                 gpascii_issued = True
 
+
         print(" ... done")
 
     def connect(self, updatesReadyEvent=None):
@@ -626,6 +627,9 @@ class PPmacSshInterface(RemotePmacInterface):
         print(" ... connected")
 
         self.start_gpascii()
+
+        # Format responses
+        (retStr, wasSuccessful) = self.sendCommand("echo 7")
 
         self.isConnectionOpen = True
 
@@ -674,6 +678,15 @@ class PPmacSshInterface(RemotePmacInterface):
 
             return self._pmacModelCode
 
+    # Get the total number of axes available
+    def getNumberOfAxes(self):
+        if self._numAxes is None:
+            (retStr, wasSuccessful) = self.sendCommand("Sys.MaxMotors")
+            self._numAxes = int(retStr) - 1
+        if self.verboseMode:
+            log.info("Total number of axes is %d." % self._numAxes)
+        return self._numAxes
+
     def _sendCommand(self, command, shouldWait=True, doubleTimeout=False):
 
         try:
@@ -689,7 +702,7 @@ class PPmacSshInterface(RemotePmacInterface):
 
                 # Wait until we receive a response
                 while not self.gpascii_client.recv_ready():
-                    time.sleep(0.5)
+                    time.sleep(0.1)
 
                 responseBytes = self.gpascii_client.recv(2048)
 
