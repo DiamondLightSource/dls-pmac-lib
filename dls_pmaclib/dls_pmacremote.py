@@ -722,6 +722,32 @@ class PPmacSshInterface(RemotePmacInterface):
             if shouldWait:
                 self.semaphore.release()
 
+    # Copy remote file to local host  
+    def getFile(self,remotePath,localPath):
+        try:      
+            sftp = self.client.open_sftp()
+            sftp.get(remotePath,localPath)
+            sftp.close()
+        except Exception as e:
+            print("Unable to get file from remote host: ",remotePath)
+
+    # Copy local file to remote host
+    def putFile(self,localPath,remotePath):
+        try:
+            sftp = self.client.open_sftp()
+            sftp.put(localPath,remotePath)
+            sftp.close()
+        except Exception as e:
+            print("Unable to copy file to remote host: ",remotePath)
+
+    # Send a command via ssh (not gpascii)
+    def sendSshCommand(self,cmd):
+        try:
+            ssh_stdin, ssh_stdout, ssh_stderr = self.client.exec_command(cmd)
+        except Exception as e:    
+            print("Unable to send command: '",cmd,"' via ssh")        
+
+
 # noinspection PyPep8Naming
 class PmacEthernetInterface(RemotePmacInterface):
     """Allows connection to a PMAC over an Ethernet interface."""
