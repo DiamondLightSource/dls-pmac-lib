@@ -8,6 +8,7 @@ import threading
 import time
 from logging import getLogger
 from paramiko import SSHClient
+#from scp import SCPClient
 
 import serial
 
@@ -739,6 +740,51 @@ class PPmacSshInterface(RemotePmacInterface):
             sftp.close()
         except Exception as e:
             print("Unable to copy file to remote host: ",remotePath)
+
+    # Copy directory from remote host
+    def getDir(self,remoteFiles,localPath):
+        try:
+            scp = SCPClient(self.client.get_transport())
+            scp.get(remoteFiles, localPath)
+            scp.close()
+        except Exception as e:
+            print("Unable to get directory from remote host: ",remotePath)
+
+    # Copy directory to remote host
+    def putDir(self,localFiles,remotePath):
+        try:
+            scp = SCPClient(self.client.get_transport())
+            #scp = self.client.open_scp()
+            scp.put(localFiles, remotePath)
+            scp.close()
+        except Exception as e:
+            print("Unable to copy directory to remote host: ",remotePath)
+
+    '''# Copy directory from remote host
+    def getDir(self,remotePath,localPath):
+        try:
+            sftp = self.client.open_sftp()
+            inbound_files=sftp.listdir(remotePath)
+            for file in inbound_files:
+                remote_file = remotePath+file
+                local_file = localPath+file
+                sftp.get(remote_file, local_file)
+            sftp.close()
+        except Exception as e:
+            print("Unable to get directory from remote host: ",remotePath)
+
+    # Copy directory to remote host
+    def putDir(self,localPath,remotePath):
+        try:
+            sftp = self.client.open_sftp()
+            outbound_files=sftp.listdir(remotePath)
+            for file in outbound_files:
+                local_file = localPath+file
+                remote_file = remotePath+file
+                sftp.put(local_file, remote_file)
+            sftp.close()
+        except Exception as e:
+            print("Unable to copy directory to remote host: ",remotePath)'''
 
     # Send a command via ssh (not gpascii)
     def sendSshCommand(self,cmd):
