@@ -704,7 +704,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 while not self.gpascii_client.recv_ready():
                     time.sleep(0.1)
 
-                responseBytes = self.gpascii_client.recv(2048)
+                responseBytes = self.gpascii_client.recv(8192)
 
                 # Decode
                 response = responseBytes.decode()
