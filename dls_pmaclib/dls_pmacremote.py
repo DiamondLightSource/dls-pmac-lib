@@ -711,6 +711,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 response = response.replace("\r\n\r\n", "")
                 response = response.replace("\r\n", "\r")
                 response = response.replace("\x06", "")
+                response = response.replace("\r\r\r", "\r")
 
                 #print(" --> Received response: " + response)
                 return response
