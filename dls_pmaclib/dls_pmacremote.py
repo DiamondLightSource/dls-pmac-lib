@@ -680,13 +680,12 @@ class PPmacSshInterface(RemotePmacInterface):
             return self._pmacModelCode
 
     # Get the total number of axes available
-    def getNumberOfAxes(self):
-        if self._numAxes is None:
-            (retStr, wasSuccessful) = self.sendCommand("Sys.MaxMotors")
-            self._numAxes = int(retStr) - 1
+    def getNumberOfMotors(self):
+        (retStr, wasSuccessful) = self.sendCommand("Sys.MaxMotors")
+        numMotors = int(retStr) - 1
         if self.verboseMode:
-            log.info("Total number of axes is %d." % self._numAxes)
-        return self._numAxes
+            log.info("Total number of motors is %d." % numMotors)
+        return numMotors
 
     def _sendCommand(self, command, shouldWait=True, doubleTimeout=False):
 
@@ -705,7 +704,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 while not self.gpascii_client.recv_ready():
                     time.sleep(0.1)
 
-                responseBytes = self.gpascii_client.recv(2048)
+                responseBytes = self.gpascii_client.recv(8192)
 
                 # Decode
                 response = responseBytes.decode()
@@ -713,6 +712,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 response = response.replace("\r\n\r\n", "")
                 response = response.replace("\r\n", "\r")
                 response = response.replace("\x06", "")
+                response = response.replace("\r\r\r", "\r")
 
                 #print(" --> Received response: " + response)
                 return response
