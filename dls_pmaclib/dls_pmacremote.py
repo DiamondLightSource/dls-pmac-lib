@@ -589,6 +589,8 @@ class RemotePmacInterface:
 class PPmacSshInterface(RemotePmacInterface):
 
     client = None
+    # Number of bytes to receive from communication channel
+    num_recv_bytes = 8192
 
     def start_gpascii(self):
         print("Starting gpascii")
@@ -702,19 +704,29 @@ class PPmacSshInterface(RemotePmacInterface):
 
                 # Wait until we receive a response
                 while not self.gpascii_client.recv_ready():
-                    time.sleep(0.1)
+                    time.sleep(0.001)
 
-                responseBytes = self.gpascii_client.recv(8192)
+                responseBytes = self.gpascii_client.recv(self.num_recv_bytes)
 
                 # Decode
                 response = responseBytes.decode()
+
+                # Keep emptying the buffer until we find the ACK character,
+                # signalling the end of the PPMAC's response
+                startPos = 0
+                while "\x06\r\n\x06\r\n" not in response[startPos:]:
+                    responseBytes = self.gpascii_client.recv(self.num_recv_bytes)
+                    response_ = responseBytes.decode()  # length of string depends on encoding
+                    response += response_
+                    startPos += len(response_)
+
                 response = response[(n - 2):]
                 response = response.replace("\r\n\r\n", "")
                 response = response.replace("\r\n", "\r")
                 response = response.replace("\x06", "")
                 response = response.replace("\r\r\r", "\r")
 
-                #print(" --> Received response: " + response)
+                #print(" --> Received response: " + response.replace("\r", "\\r"))
                 return response
             except:
                 print("Error")
