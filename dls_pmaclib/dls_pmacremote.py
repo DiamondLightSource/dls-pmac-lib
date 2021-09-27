@@ -8,7 +8,6 @@ import threading
 import time
 from logging import getLogger
 from paramiko import SSHClient
-#from scp import SCPClient
 
 import serial
 
@@ -593,7 +592,7 @@ class PPmacSshInterface(RemotePmacInterface):
     num_recv_bytes = 8192
 
     def start_gpascii(self):
-        print("Starting gpascii")
+        #print("Starting gpascii")
         # Have to create a 'special shell' to invoke gpascii
         self.gpascii_client = self.client.invoke_shell(term="vt100")
         self.gpascii_client.send("gpascii -2\r\n")
@@ -610,7 +609,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 gpascii_issued = True
 
 
-        print(" ... done")
+        #print(" ... done")
 
     def connect(self, updatesReadyEvent=None):
 
@@ -621,13 +620,13 @@ class PPmacSshInterface(RemotePmacInterface):
             return "ERROR: hostname not set"
 
         # Create SSH client
-        print("Connection to '"+self.hostname+"'")
+        #print("Connection to '"+self.hostname+"'")
         self.client = SSHClient()
         self.client.load_system_host_keys()
 
         # Connect to IP address with username and password
         self.client.connect(self.hostname, username='root', password='deltatau')
-        print(" ... connected")
+        #print(" ... connected")
 
         self.start_gpascii()
 
@@ -639,7 +638,7 @@ class PPmacSshInterface(RemotePmacInterface):
     def disconnect(self):
         if self.isConnectionOpen:
             self.semaphore.acquire()
-            print("Closing connection to '" + self.hostname + "'")
+            #print("Closing connection to '" + self.hostname + "'")
             self.client.close()
             self.semaphore.release()
             self.isConnectionOpen = False
@@ -682,7 +681,7 @@ class PPmacSshInterface(RemotePmacInterface):
             return self._pmacModelCode
 
     # Get the total number of axes available
-    def getNumberOfMotors(self):
+    def getNumberOfAxes(self):
         (retStr, wasSuccessful) = self.sendCommand("Sys.MaxMotors")
         numMotors = int(retStr) - 1
         if self.verboseMode:
@@ -690,7 +689,6 @@ class PPmacSshInterface(RemotePmacInterface):
         return numMotors
 
     def _sendCommand(self, command, shouldWait=True, doubleTimeout=False):
-
         try:
             if shouldWait:
                 self.semaphore.acquire()
@@ -701,7 +699,6 @@ class PPmacSshInterface(RemotePmacInterface):
             stringToSend = command + "\r\n"
             try:
                 n = self.gpascii_client.send(stringToSend)
-
                 # Wait until we receive a response
                 while not self.gpascii_client.recv_ready():
                     time.sleep(0.001)
@@ -710,7 +707,6 @@ class PPmacSshInterface(RemotePmacInterface):
 
                 # Decode
                 response = responseBytes.decode()
-
                 # Keep emptying the buffer until we find the ACK character,
                 # signalling the end of the PPMAC's response
                 startPos = 0
@@ -725,8 +721,6 @@ class PPmacSshInterface(RemotePmacInterface):
                 response = response.replace("\r\n", "\r")
                 response = response.replace("\x06", "")
                 response = response.replace("\r\r\r", "\r")
-
-                #print(" --> Received response: " + response.replace("\r", "\\r"))
                 return response
             except:
                 print("Error")
@@ -736,74 +730,58 @@ class PPmacSshInterface(RemotePmacInterface):
                 self.semaphore.release()
 
     # Copy remote file to local host  
-    def getFile(self,remotePath,localPath):
-        try:      
-            sftp = self.client.open_sftp()
-            sftp.get(remotePath,localPath)
-            sftp.close()
-        except Exception as e:
-            print("Unable to get file from remote host: ",remotePath)
+    def getFile(self, remotePath, localPath, shouldWait=True):
+        try:
+            if shouldWait:
+                self.semaphore.acquire()
+
+            try:
+                sftp = self.client.open_sftp()
+                sftp.get(remotePath,localPath)
+                sftp.close()
+
+            except:
+                print("Unable to get '%s' from remote host" % remotePath)
+
+        finally:
+            if shouldWait:
+                self.semaphore.release() 
 
     # Copy local file to remote host
-    def putFile(self,localPath,remotePath):
+    def putFile(self, localPath, remotePath, shouldWait=True):
         try:
-            sftp = self.client.open_sftp()
-            sftp.put(localPath,remotePath)
-            sftp.close()
-        except Exception as e:
-            print("Unable to copy file to remote host: ",remotePath)
+            if shouldWait:
+                self.semaphore.acquire()
 
-    # Copy directory from remote host
-    def getDir(self,remoteFiles,localPath):
-        try:
-            scp = SCPClient(self.client.get_transport())
-            scp.get(remoteFiles, localPath)
-            scp.close()
-        except Exception as e:
-            print("Unable to get directory from remote host: ",remotePath)
+            try:
+                sftp = self.client.open_sftp()
+                sftp.put(localPath,remotePath)
+                sftp.close()
 
-    # Copy directory to remote host
-    def putDir(self,localFiles,remotePath):
-        try:
-            scp = SCPClient(self.client.get_transport())
-            #scp = self.client.open_scp()
-            scp.put(localFiles, remotePath)
-            scp.close()
-        except Exception as e:
-            print("Unable to copy directory to remote host: ",remotePath)
+            except:
+                print("Unable to copy '%s' to remote host" % localPath)
 
-    '''# Copy directory from remote host
-    def getDir(self,remotePath,localPath):
-        try:
-            sftp = self.client.open_sftp()
-            inbound_files=sftp.listdir(remotePath)
-            for file in inbound_files:
-                remote_file = remotePath+file
-                local_file = localPath+file
-                sftp.get(remote_file, local_file)
-            sftp.close()
-        except Exception as e:
-            print("Unable to get directory from remote host: ",remotePath)
-
-    # Copy directory to remote host
-    def putDir(self,localPath,remotePath):
-        try:
-            sftp = self.client.open_sftp()
-            outbound_files=sftp.listdir(remotePath)
-            for file in outbound_files:
-                local_file = localPath+file
-                remote_file = remotePath+file
-                sftp.put(local_file, remote_file)
-            sftp.close()
-        except Exception as e:
-            print("Unable to copy directory to remote host: ",remotePath)'''
+        finally:
+            if shouldWait:
+                self.semaphore.release()    
 
     # Send a command via ssh (not gpascii)
-    def sendSshCommand(self,cmd):
+    def sendSshCommand(self, cmd, shouldWait=True):
+
         try:
-            ssh_stdin, ssh_stdout, ssh_stderr = self.client.exec_command(cmd)
-        except Exception as e:    
-            print("Unable to send command: '",cmd,"' via ssh")        
+            if shouldWait:
+                self.semaphore.acquire()
+
+            cmd += "\n"
+            try:
+                ssh_stdin, ssh_stdout, ssh_stderr = self.client.exec_command(cmd)
+
+            except:
+                print("Unable to send command: '%s' via ssh" % cmd)
+
+        finally:
+            if shouldWait:
+                self.semaphore.release()     
 
 
 # noinspection PyPep8Naming
