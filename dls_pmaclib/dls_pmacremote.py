@@ -627,9 +627,10 @@ class PPmacSshInterface(RemotePmacInterface):
 
         # Connect to IP address with username and password
         try:
-            self.client.connect(self.hostname, username='root', password='deltatau', timeout=timeout)
+            self.client.connect(self.hostname, self.port, 
+                username='root', password='deltatau', timeout=timeout)
         except: 
-            return "Cannot connect to " + self.hostname
+            return "Cannot connect to " + self.hostname + " " + str(self.port)
 
         self.start_gpascii()
 
