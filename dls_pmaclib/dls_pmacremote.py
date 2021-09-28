@@ -6,6 +6,7 @@ import sys
 import telnetlib
 import threading
 import time
+import paramiko
 from logging import getLogger
 from paramiko import SSHClient
 
@@ -611,7 +612,7 @@ class PPmacSshInterface(RemotePmacInterface):
 
         #print(" ... done")
 
-    def connect(self, updatesReadyEvent=None):
+    def connect(self, updatesReadyEvent=None, timeout=3.0):
 
         # Sanity checks
         if self.isConnectionOpen:
@@ -620,13 +621,15 @@ class PPmacSshInterface(RemotePmacInterface):
             return "ERROR: hostname not set"
 
         # Create SSH client
-        #print("Connection to '"+self.hostname+"'")
         self.client = SSHClient()
-        self.client.load_system_host_keys()
+        #self.client.load_system_host_keys()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         # Connect to IP address with username and password
-        self.client.connect(self.hostname, username='root', password='deltatau')
-        #print(" ... connected")
+        try:
+            self.client.connect(self.hostname, username='root', password='deltatau', timeout=timeout)
+        except: 
+            return "Cannot connect to " + self.hostname
 
         self.start_gpascii()
 
