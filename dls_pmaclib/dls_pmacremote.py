@@ -612,7 +612,7 @@ class PPmacSshInterface(RemotePmacInterface):
 
         #print(" ... done")
 
-    def connect(self, updatesReadyEvent=None, timeout=3.0):
+    def connect(self, updatesReadyEvent=None, username='root', password='deltatau', timeout=3.0):
 
         # Sanity checks
         if self.isConnectionOpen:
@@ -627,9 +627,11 @@ class PPmacSshInterface(RemotePmacInterface):
 
         # Connect to IP address with username and password
         try:
-            self.client.connect(self.hostname, self.port, 
-                username='root', password='deltatau', timeout=timeout)
-        except: 
+            self.client.connect(self.hostname, self.port, username=username, 
+                password=password, timeout=timeout)
+        except paramiko.ssh_exception.AuthenticationException: 
+            return "Invalid username or password"
+        except:
             return "Cannot connect to " + self.hostname + " " + str(self.port)
 
         self.start_gpascii()
@@ -727,7 +729,6 @@ class PPmacSshInterface(RemotePmacInterface):
                 response = response.replace("\r\r\r", "\r")
                 return response
             except:
-                print("Error")
                 return None
         finally:
             if shouldWait:
@@ -749,7 +750,7 @@ class PPmacSshInterface(RemotePmacInterface):
 
         finally:
             if shouldWait:
-                self.semaphore.release() 
+                self.semaphore.release()
 
     # Copy local file to remote host
     def putFile(self, localPath, remotePath, shouldWait=True):
@@ -843,7 +844,7 @@ class PmacEthernetInterface(RemotePmacInterface):
         if not re.match(r"^\d+\.\d+\s*\r\x06$", response):
             # if the response is not of the form "1.945  \r\x06" then we're
             # not talking to a PMAC!
-            log.error(response)
+            #log.error(response)
             self.disconnect()
             return 'Device did not respond correctly to a "ver" command'
 
@@ -900,7 +901,6 @@ class PmacEthernetInterface(RemotePmacInterface):
                     self.sock.settimeout(self.timeout * 2)
                 else:
                     self.sock.settimeout(self.timeout)
-
                 # attempt to send the whole packet
                 self.sock.sendall(getresponseRequest(command))
                 if self.verboseMode:
@@ -908,7 +908,6 @@ class PmacEthernetInterface(RemotePmacInterface):
 
                 # wait for and read the response from PMAC (at most 1400 chars)
                 returnStr = receiveReliably(2048).decode()
-
                 if self.verboseMode:
                     log.error("Received: %r" % returnStr)
 
@@ -1095,7 +1094,7 @@ class PmacTelnetInterface(RemotePmacInterface):
                 # regexes in self.lstRegExps
                 (returnMatchNo, returnMatch, returnStr) = self.tn.expect(
                     self.lstRegExps, messageTimeout
-                )
+                ) 
                 if self.verboseMode:
                     log.error("Received: %r" % returnStr)
                 returnStr = returnStr.decode("utf8")
@@ -1171,7 +1170,7 @@ class PmacSerialInterface(RemotePmacInterface):
             self.isConnectionOpen = False
             msg = "send failed"
             log.debug(msg, exc_info=True)
-            log.error(msg)
+            #log.error(msg)
             raise e
             # return "Error: did not get expected response from PMAC command
             # \"ver\".\n\nMaybe someone is connected to the port already,
@@ -1231,6 +1230,7 @@ class PmacSerialInterface(RemotePmacInterface):
                 while char != "\x06" and time.time() - read_start < messageTimeout:
                     char = self.serial.read()
                     returnStr = returnStr + char.decode()
+                print(returnStr)
                 returnMatchNo = [
                     x for x in range(0, 5) if self.lstRegExps[x].search(returnStr)
                 ]
