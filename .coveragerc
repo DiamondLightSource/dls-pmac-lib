@@ -1,2 +1,5 @@
 [run]
-omit = */_version_git.py
+source = /home/dlscontrols/bem-osl/dls-pmac-lib/
+omit = 
+	*/_version_git.py
+	*/test/*
