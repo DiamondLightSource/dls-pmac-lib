@@ -3,3 +3,5 @@ source = /home/dlscontrols/bem-osl/dls-pmac-lib/
 omit = 
 	*/_version_git.py
 	*/test/*
+        *__init__.py
+        *__main__.py
