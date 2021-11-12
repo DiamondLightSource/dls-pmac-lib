@@ -6,6 +6,7 @@ import dls_pmacremote
 import paramiko
 import socket
 import serial
+import types
 
 class TestRemotePmacInterface(unittest.TestCase):
 
@@ -66,11 +67,12 @@ class TestRemotePmacInterface(unittest.TestCase):
         obj = dls_pmacremote.RemotePmacInterface()
         assert obj._getNumberOfMacroStationAxes() == 32
 
-    '''@patch("dls_pmacremote.RemotePmacInterface.sendCommand")
+    @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
     def test_send_series(self, mock_send_cmd):
         mock_send_cmd.return_value = ("repsonse",True)
         obj = dls_pmacremote.RemotePmacInterface()
-        obj.sendSeries(["cmd1","cmd2","cmd3"])'''
+        ret = obj.sendSeries(["cmd1","cmd2","cmd3"])
+        assert isinstance(ret, types.GeneratorType)
 
     @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
     def test_disable_limits_not_enabled_disable_true(self, mock_send_cmd):
@@ -83,8 +85,18 @@ class TestRemotePmacInterface(unittest.TestCase):
 
 class TestSshConnection(unittest.TestCase):
 
+    @unittest.skip("test hanging")
     @patch("dls_pmacremote.PPmacSshInterface.client")
     def test_start_gpascii(self, mock_gpascii):
+        #mock_gpascii.recv.return_value = "ASCII".encode()
+        
+        #attrs = {"recv.return_value" : "ASCII".encode()}
+        #mock_gpascii.configure_mock(**attrs)
+
+        #mock_instance = Mock()
+        #mock_instance.recv.return_value = "ASCII".encode()
+        #mock_gpascii.return_value = mock_instance
+
         obj = dls_pmacremote.PPmacSshInterface()
         obj.start_gpascii()
 
@@ -165,19 +177,25 @@ class TestSshConnection(unittest.TestCase):
         obj.disconnect()
         assert obj.isConnectionOpen == False
 
-    '''@patch("dls_pmacremote.PPmacSshInterface.sendCommand")
+    @patch("dls_pmacremote.PPmacSshInterface.sendCommand")
     def test_get_pmac_model_code(self, mock_send_cmd):
         mock_send_cmd.return_value = ("123456", True)
-        obj = dls_pmacremote.RemotePmacInterface()
+        obj = dls_pmacremote.PPmacSshInterface()
         obj._pmacModelCode = None
-        assert obj.getPmacModelCode() == 123456'''
+        assert obj.getPmacModelCode() == 123456
 
-    #@patch("paramiko.client.SSHClient.invoke_shell")
-    #def test_sendCommand(self, mock_client):
-     #   mock_client.send.return_value = "n"
-      #  obj = dls_pmacremote.PPmacSshInterface()
-       # obj.gpascii_client = mock_client.return_value
-        #obj._sendCommand("command")
+    #@unittest.skip("")
+    #@patch.object(paramiko.client.SSHClient.invoke_shell, "recv_ready")
+    #@patch("dls_pmacremote.PPmacSshInterface.client")
+    @patch("paramiko.channel.Channel.recv")
+    @patch("paramiko.client.SSHClient.invoke_shell")
+    def test_sendCommand(self, mock_client, mock_recv):
+        mock_recv.return_value = "\x06\r\n\x06\r\n".encode()
+        mock_client.send.return_value = "n"
+        obj = dls_pmacremote.PPmacSshInterface()
+        obj.gpascii_client = mock_client.return_value
+        ret = obj._sendCommand("command")
+        print(ret)
 
     '''def test_get_file(self):
         fake_file = io.StringIO("contents")
@@ -185,9 +203,8 @@ class TestSshConnection(unittest.TestCase):
         obj = dls_pmacremote.PPmacSshInterface()
         obj.getFile(fake_file,my_directory)'''
 
-    #def test_put_file()
+    #def test_put_file(self):
 
-    #def test_send_ssh_command()
     #@patch("paramiko.client.SSHClient.exec_command")
     #@patch("paramiko.client.SSHClient")
     #def test_send_ssh_command(self, mock_client, mock_cmd):

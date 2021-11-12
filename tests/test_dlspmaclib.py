@@ -5,7 +5,7 @@ sys.path.append('/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib')
 from dls_pmaclib import HelloClass, say_hello_lots
 from cli import main
 
-class DlsControlTest(unittest.TestCase):
+class DlsLibTest(unittest.TestCase):
 
     def test_hello_class_formats_greeting(self):
         obj = HelloClass("test")
