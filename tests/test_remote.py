@@ -63,11 +63,84 @@ class TestRemotePmacInterface(unittest.TestCase):
         mock_get_ivars.return_value = [1,2,3,4]
         assert self.obj._getNumberOfMacroStationAxes() == 32
 
+    @patch("dls_pmacremote.RemotePmacInterface._getNumberOfMacroStationAxes")
+    @patch("dls_pmacremote.RemotePmacInterface.isModelGeobrick")
+    def test_getNumberOfAxes(self, mock_geobrick, mock_axes):
+        mock_geobrick.return_value = True
+        mock_axes.return_value = 0
+        self.obj._numAxes = None
+        ret = self.obj.getNumberOfAxes()
+        assert ret == 8
+
+    @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
+    @patch("dls_pmacremote.RemotePmacInterface.getAxisMacroStationNumber")
+    @patch("dls_pmacremote.RemotePmacInterface.checkAxisIsInRange")
+    def test_getAxisMsIVars(self, mock_check, mock_get, mock_sendcmd):
+        mock_get.return_value = 10
+        mock_sendcmd.return_value = ("response\rresponse\rresponse\rx06", True)
+        ret = self.obj.getAxisMsIVars(2, [100,200,300])
+        assert mock_check.called
+        assert mock_get.called
+        mock_sendcmd.assert_called_with("ms10,i100 ms10,i200 ms10,i300 ")
+        assert ret == ["response","response","response"]
+
+    @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
+    def test_getIVars(self, mock_sendcmd):
+        mock_sendcmd.return_value = ("response\rresponse\rresponse\rx06", True)
+        ret = self.obj.getIVars(100,[1,2,3])
+        mock_sendcmd.assert_called_with("i101 i102 i103 ")
+        assert ret == ["response","response","response"]
+
+    @patch("dls_pmacremote.RemotePmacInterface.isMacroStationAxis")
+    @patch("dls_pmacremote.RemotePmacInterface.checkAxisIsInRange")
+    def test_getIVars(self, mock_check, mock_macro):
+        mock_macro.return_value = False
+        ret = self.obj.getOnboardAxisI7000PlusVarsBase(4)
+        assert ret == 7115
+
     @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
     def test_send_series(self, mock_send_cmd):
-        mock_send_cmd.return_value = ("repsonse",True)
-        ret = self.obj.sendSeries(["cmd1","cmd2","cmd3"])
+        mock_send_cmd.return_value = ("response", True)
+        ret = self.obj.sendSeries([(0, "cmd1"), (1, "cmd2")])
         assert isinstance(ret, types.GeneratorType)
+        assert (next(ret)) == (True, 0, "cmd1", "response")
+        assert (next(ret)) == (True, 1, "cmd2", "response")
+
+    @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
+    def test_jogInc_neg(self, mock_sendcmd):
+        mock_sendcmd.return_value = ("response", True)
+        ret = self.obj.jogInc(1, "neg", 100)
+        mock_sendcmd.assert_called_with("#1J^-100")
+        assert ret == ("#1J^-100", "response", True)
+
+    @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
+    def test_jogInc_pos(self, mock_sendcmd):
+        mock_sendcmd.return_value = ("response", True)
+        ret = self.obj.jogInc(1, "pos", 100)
+        mock_sendcmd.assert_called_with("#1J^100")
+        assert ret == ("#1J^100", "response", True)
+
+    def test_jogInc_err(self):
+        ret = self.obj.jogInc(1, "err", 100)
+        assert ret == ("Error, could not recognise direction: err", False)
+
+    @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
+    def test_jogCont_neg(self, mock_sendcmd):
+        mock_sendcmd.return_value = ("response", True)
+        ret = self.obj.jogContinous(1, "neg")
+        mock_sendcmd.assert_called_with("#1J-")
+        assert ret == ("#1J-", "response", True)
+
+    @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
+    def test_jogCont_pos(self, mock_sendcmd):
+        mock_sendcmd.return_value = ("response", True)
+        ret = self.obj.jogContinous(1, "pos")
+        mock_sendcmd.assert_called_with("#1J+")
+        assert ret == ("#1J+", "response", True)
+
+    def test_jogCont_err(self):
+        ret = self.obj.jogContinous(1, "err")
+        assert ret == ("Error, could not recognise direction: err", False)
 
     @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
     def test_disable_limits_not_enabled_disable_true(self, mock_send_cmd):

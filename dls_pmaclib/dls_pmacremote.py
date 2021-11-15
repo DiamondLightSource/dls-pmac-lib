@@ -600,14 +600,14 @@ class PPmacSshInterface(RemotePmacInterface):
 
         # Have to wait a few seconds to make sure the gpascii command has been issued
         # and we are 'in' to the ppmac. Wait from message 'STDIN Open for ASCII Input'
-        gpascii_issued = False
-        while not gpascii_issued:
+        self.gpascii_issued = False
+        while not self.gpascii_issued:
             # Decode response
             time.sleep(0.1)
             response = self.gpascii_client.recv(2048)
             response = response.decode()
             if "ASCII" in response:
-                gpascii_issued = True
+                self.gpascii_issued = True
 
 
         #print(" ... done")
@@ -1230,7 +1230,7 @@ class PmacSerialInterface(RemotePmacInterface):
                 while char != "\x06" and time.time() - read_start < messageTimeout:
                     char = self.serial.read()
                     returnStr = returnStr + char.decode()
-                print(returnStr)
+                #print(returnStr)
                 returnMatchNo = [
                     x for x in range(0, 5) if self.lstRegExps[x].search(returnStr)
                 ]

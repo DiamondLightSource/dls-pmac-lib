@@ -13,16 +13,17 @@ class TestSshInterface(unittest.TestCase):
         self.obj.isConnectionOpen = False
         self.obj.hostname = 'test'
         self.obj.port = 22
-        
-    @unittest.skip("need to mock send and recv")
-    def test_start_gpascii(self):
-        self.obj.client = Mock()
-        attrs = {"invoke_shell.return_value" : Mock()}
-        self.obj.client.configure_mock(**attrs)
-        attrs = {"send.return_value" : None,
-        "recv.return_value" : "ASCII".encode()}
-        self.obj.client.invoke_shell.configure_mock(**attrs)
-        self.obj.start_gpascii()
+
+    @patch("dls_pmacremote.PPmacSshInterface.client.invoke_shell")
+    @patch("dls_pmacremote.PPmacSshInterface.client")
+    def test_start_gpascii(self, mock_client, mock_gpascii):
+        mock_instance = Mock()
+        mock_instance.send.return_value = None
+        mock_instance.recv.return_value = "ASCII".encode()
+        mock_gpascii.return_value = mock_instance
+        ret = self.obj.start_gpascii()
+        assert ret == None
+        assert self.obj.gpascii_issued == True
 
     def test_connection_already_open(self):
         self.obj.isConnectionOpen = True
@@ -89,24 +90,21 @@ class TestSshInterface(unittest.TestCase):
         ret = self.obj._sendCommand("command")
         assert ret == None
 
-    @unittest.skip("need to mock sftp.get")
-    def test_get_file(self):
-        self.obj.client = Mock()
-        attrs = {"open_sftp.return_value" : Mock()}
-        self.obj.client.configure_mock(**attrs)
+    #@unittest.skip("need to mock sftp.get")
+    @patch("dls_pmacremote.PPmacSshInterface.client.open_sftp")
+    @patch("dls_pmacremote.PPmacSshInterface.client")
+    def test_get_file(self, mock_client, mock_open):
         ret = self.obj.getFile("remote","local")
-        assert self.obj.client.open_sftp.called
         assert ret == None
+        assert mock_open.called
 
-    @unittest.skip("need to mock sftp.put")
-    def test_put_file(self):
-        self.obj.client = Mock()
-        attrs = {"open_sftp.return_value" : Mock()}
-        self.obj.client.configure_mock(**attrs)
+    #@unittest.skip("need to mock sftp.put")
+    @patch("dls_pmacremote.PPmacSshInterface.client.open_sftp")
+    @patch("dls_pmacremote.PPmacSshInterface.client")
+    def test_put_file(self, mock_client, mock_open):
         ret = self.obj.putFile("local","remote")
-        assert self.obj.client.open_sftp.called
-        #self.obj.client.open_sftp.put.assert_called_with("local","remote")
         assert ret == None
+        assert mock_open.called
 
     def test_send_ssh_command(self):
         self.obj.client = Mock()
