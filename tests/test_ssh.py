@@ -1,17 +1,18 @@
 import unittest
 from mock import patch, Mock
 import sys
-sys.path.append('/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib')
+
+sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
 import dls_pmacremote
 import paramiko
 import types
 
-class TestSshInterface(unittest.TestCase):
 
+class TestSshInterface(unittest.TestCase):
     def setUp(self):
         self.obj = dls_pmacremote.PPmacSshInterface()
         self.obj.isConnectionOpen = False
-        self.obj.hostname = 'test'
+        self.obj.hostname = "test"
         self.obj.port = 22
 
     @patch("dls_pmacremote.PPmacSshInterface.client.invoke_shell")
@@ -33,8 +34,8 @@ class TestSshInterface(unittest.TestCase):
         self.obj.hostname = None
         assert self.obj.connect() == "ERROR: hostname not set"
 
-    # when obj.connect() called, SSHClient object is initialised 
-    @patch("dls_pmacremote.PPmacSshInterface.sendCommand", return_value = (None,None))
+    # when obj.connect() called, SSHClient object is initialised
+    @patch("dls_pmacremote.PPmacSshInterface.sendCommand", return_value=(None, None))
     @patch("dls_pmacremote.PPmacSshInterface.start_gpascii")
     @patch("paramiko.client.SSHClient.connect")
     def test_connects(self, mock_connect, mock_gpascii, mock_sendcmd):
@@ -83,41 +84,42 @@ class TestSshInterface(unittest.TestCase):
     def test_sendCommand(self):
         self.obj.gpascii_client = Mock()
         attrs = {
-        "send.return_value" : "n",
-        "recv_ready.return_value" : True,
-        "recv.return_value" : "\x06\r\n\x06\r\n".encode()}
+            "send.return_value": "n",
+            "recv_ready.return_value": True,
+            "recv.return_value": "\x06\r\n\x06\r\n".encode(),
+        }
         self.obj.gpascii_client.configure_mock(**attrs)
         ret = self.obj._sendCommand("command")
         assert ret == None
 
-    #@unittest.skip("need to mock sftp.get")
+    # @unittest.skip("need to mock sftp.get")
     @patch("dls_pmacremote.PPmacSshInterface.client.open_sftp")
     @patch("dls_pmacremote.PPmacSshInterface.client")
     def test_get_file(self, mock_client, mock_open):
-        ret = self.obj.getFile("remote","local")
+        ret = self.obj.getFile("remote", "local")
         assert ret == None
         assert mock_open.called
 
-    #@unittest.skip("need to mock sftp.put")
+    # @unittest.skip("need to mock sftp.put")
     @patch("dls_pmacremote.PPmacSshInterface.client.open_sftp")
     @patch("dls_pmacremote.PPmacSshInterface.client")
     def test_put_file(self, mock_client, mock_open):
-        ret = self.obj.putFile("local","remote")
+        ret = self.obj.putFile("local", "remote")
         assert ret == None
         assert mock_open.called
 
     def test_send_ssh_command(self):
         self.obj.client = Mock()
-        attrs = {"exec_command.return_value" : ("in","out","err")}
+        attrs = {"exec_command.return_value": ("in", "out", "err")}
         self.obj.client.configure_mock(**attrs)
         ret = self.obj.sendSshCommand("cmd")
         self.obj.client.exec_command.assert_called_with("cmd\n")
         assert ret == None
 
     def test_get_pmac_model(self):
-        self.obj._pmacModelName = 'name'
+        self.obj._pmacModelName = "name"
         ret = self.obj.getPmacModel()
-        assert ret == 'name'
+        assert ret == "name"
 
     @patch("dls_pmacremote.PPmacSshInterface.getPmacModelCode", return_value=604020)
     def test_get_pmac_model_is_none(self, mock_get_pmac_model_name):
@@ -132,7 +134,7 @@ class TestSshInterface(unittest.TestCase):
             self.obj.getPmacModel()
         assert self.obj._pmacModelName == None
 
-    @patch("dls_pmacremote.PPmacSshInterface.sendCommand", return_value = (5,True))
+    @patch("dls_pmacremote.PPmacSshInterface.sendCommand", return_value=(5, True))
     def test_get_number_axes(self, mock_sendcmd):
         ret = self.obj.getNumberOfAxes()
         assert ret == 4

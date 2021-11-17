@@ -142,7 +142,7 @@ class ClsPmacParser:
     @staticmethod
     def substitute_macros(macro_dict, text):
         """Expands any macros defined by 'macro_dict' in the given 'text'.
-           The expanded text is returned."""
+        The expanded text is returned."""
         out_text = text
         sorted_macros = [(len(x), x) for x in macro_dict.keys()]
         sorted_macros.sort()

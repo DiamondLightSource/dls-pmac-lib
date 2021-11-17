@@ -586,6 +586,7 @@ class RemotePmacInterface:
         self.testIsMacroStationAxis()
         self.testGetAxisMacroStationNumber()
 
+
 class PPmacSshInterface(RemotePmacInterface):
 
     client = None
@@ -593,7 +594,7 @@ class PPmacSshInterface(RemotePmacInterface):
     num_recv_bytes = 8192
 
     def start_gpascii(self):
-        #print("Starting gpascii")
+        # print("Starting gpascii")
         # Have to create a 'special shell' to invoke gpascii
         self.gpascii_client = self.client.invoke_shell(term="vt100")
         self.gpascii_client.send("gpascii -2\r\n")
@@ -609,10 +610,11 @@ class PPmacSshInterface(RemotePmacInterface):
             if "ASCII" in response:
                 self.gpascii_issued = True
 
+        # print(" ... done")
 
-        #print(" ... done")
-
-    def connect(self, updatesReadyEvent=None, username='root', password='deltatau', timeout=3.0):
+    def connect(
+        self, updatesReadyEvent=None, username="root", password="deltatau", timeout=3.0
+    ):
 
         # Sanity checks
         if self.isConnectionOpen:
@@ -622,14 +624,19 @@ class PPmacSshInterface(RemotePmacInterface):
 
         # Create SSH client
         self.client = SSHClient()
-        #self.client.load_system_host_keys()
+        # self.client.load_system_host_keys()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
         # Connect to IP address with username and password
         try:
-            self.client.connect(self.hostname, self.port, username=username, 
-                password=password, timeout=timeout)
-        except paramiko.ssh_exception.AuthenticationException: 
+            self.client.connect(
+                self.hostname,
+                self.port,
+                username=username,
+                password=password,
+                timeout=timeout,
+            )
+        except paramiko.ssh_exception.AuthenticationException:
             return "Invalid username or password"
         except:
             return "Cannot connect to " + self.hostname + " " + str(self.port)
@@ -644,7 +651,7 @@ class PPmacSshInterface(RemotePmacInterface):
     def disconnect(self):
         if self.isConnectionOpen:
             self.semaphore.acquire()
-            #print("Closing connection to '" + self.hostname + "'")
+            # print("Closing connection to '" + self.hostname + "'")
             self.client.close()
             self.semaphore.release()
             self.isConnectionOpen = False
@@ -655,9 +662,7 @@ class PPmacSshInterface(RemotePmacInterface):
     def getPmacModel(self):
         # Return a model designation based on model code
         if self._pmacModelName is None:
-            modelNamesByCode = {
-                604020: "Power PMAC UMAC"
-            }
+            modelNamesByCode = {604020: "Power PMAC UMAC"}
 
             modelCode = self.getPmacModelCode()
             try:
@@ -677,12 +682,12 @@ class PPmacSshInterface(RemotePmacInterface):
             if not wasSuccessful:
                 raise IOError("Error talking to Power PMAC")
 
-            #mo = re.compile(r"^(\d+)\r\x06$").match(retStr)
-            #if not mo:
+            # mo = re.compile(r"^(\d+)\r\x06$").match(retStr)
+            # if not mo:
             #    raise ValueError("Received malformed input from PMAC (%r)" % retStr)
 
             self._pmacModelCode = int(retStr)
-            #self._pmacModelCode = int(mo.group(1))
+            # self._pmacModelCode = int(mo.group(1))
 
             return self._pmacModelCode
 
@@ -699,7 +704,7 @@ class PPmacSshInterface(RemotePmacInterface):
             if shouldWait:
                 self.semaphore.acquire()
 
-            #print("Sending command: " + command)
+            # print("Sending command: " + command)
 
             # Send a command
             stringToSend = command + "\r\n"
@@ -718,11 +723,13 @@ class PPmacSshInterface(RemotePmacInterface):
                 startPos = 0
                 while "\x06\r\n\x06\r\n" not in response[startPos:]:
                     responseBytes = self.gpascii_client.recv(self.num_recv_bytes)
-                    response_ = responseBytes.decode()  # length of string depends on encoding
+                    response_ = (
+                        responseBytes.decode()
+                    )  # length of string depends on encoding
                     response += response_
                     startPos += len(response_)
 
-                response = response[(n - 2):]
+                response = response[(n - 2) :]
                 response = response.replace("\r\n\r\n", "")
                 response = response.replace("\r\n", "\r")
                 response = response.replace("\x06", "")
@@ -734,7 +741,7 @@ class PPmacSshInterface(RemotePmacInterface):
             if shouldWait:
                 self.semaphore.release()
 
-    # Copy remote file to local host  
+    # Copy remote file to local host
     def getFile(self, remotePath, localPath, shouldWait=True):
         try:
             if shouldWait:
@@ -742,7 +749,7 @@ class PPmacSshInterface(RemotePmacInterface):
 
             try:
                 sftp = self.client.open_sftp()
-                sftp.get(remotePath,localPath)
+                sftp.get(remotePath, localPath)
                 sftp.close()
 
             except:
@@ -760,7 +767,7 @@ class PPmacSshInterface(RemotePmacInterface):
 
             try:
                 sftp = self.client.open_sftp()
-                sftp.put(localPath,remotePath)
+                sftp.put(localPath, remotePath)
                 sftp.close()
 
             except:
@@ -768,7 +775,7 @@ class PPmacSshInterface(RemotePmacInterface):
 
         finally:
             if shouldWait:
-                self.semaphore.release()    
+                self.semaphore.release()
 
     # Send a command via ssh (not gpascii)
     def sendSshCommand(self, cmd, shouldWait=True):
@@ -786,7 +793,7 @@ class PPmacSshInterface(RemotePmacInterface):
 
         finally:
             if shouldWait:
-                self.semaphore.release()     
+                self.semaphore.release()
 
 
 # noinspection PyPep8Naming
@@ -844,7 +851,7 @@ class PmacEthernetInterface(RemotePmacInterface):
         if not re.match(r"^\d+\.\d+\s*\r\x06$", response):
             # if the response is not of the form "1.945  \r\x06" then we're
             # not talking to a PMAC!
-            #log.error(response)
+            # log.error(response)
             self.disconnect()
             return 'Device did not respond correctly to a "ver" command'
 
@@ -1094,7 +1101,7 @@ class PmacTelnetInterface(RemotePmacInterface):
                 # regexes in self.lstRegExps
                 (returnMatchNo, returnMatch, returnStr) = self.tn.expect(
                     self.lstRegExps, messageTimeout
-                ) 
+                )
                 if self.verboseMode:
                     log.error("Received: %r" % returnStr)
                 returnStr = returnStr.decode("utf8")
@@ -1136,7 +1143,7 @@ class PmacSerialInterface(RemotePmacInterface):
     # Returns None if success. Error string if no connection parameters are
     # set or if failure.
     def connect(self, updatesReadyEvent=None):
-        """ Connect here """
+        """Connect here"""
         # used same class attributes as other PMAC classes for getting data
         # from GUI...lazy and confusing here!
         self.baud_rate = self.port
@@ -1170,7 +1177,7 @@ class PmacSerialInterface(RemotePmacInterface):
             self.isConnectionOpen = False
             msg = "send failed"
             log.debug(msg, exc_info=True)
-            #log.error(msg)
+            # log.error(msg)
             raise e
             # return "Error: did not get expected response from PMAC command
             # \"ver\".\n\nMaybe someone is connected to the port already,
@@ -1230,7 +1237,7 @@ class PmacSerialInterface(RemotePmacInterface):
                 while char != "\x06" and time.time() - read_start < messageTimeout:
                     char = self.serial.read()
                     returnStr = returnStr + char.decode()
-                #print(returnStr)
+                # print(returnStr)
                 returnMatchNo = [
                     x for x in range(0, 5) if self.lstRegExps[x].search(returnStr)
                 ]

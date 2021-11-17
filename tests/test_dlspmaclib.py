@@ -1,12 +1,13 @@
 import unittest
 import io
 import sys
-sys.path.append('/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib')
+
+sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
 from dls_pmaclib import HelloClass, say_hello_lots
 from cli import main
 
-class DlsLibTest(unittest.TestCase):
 
+class DlsLibTest(unittest.TestCase):
     def test_hello_class_formats_greeting(self):
         obj = HelloClass("test")
         assert obj.format_greeting() == "Hello test"
@@ -21,6 +22,6 @@ class DlsLibTest(unittest.TestCase):
     def test_cli(self):
         capOutput = io.StringIO()
         sys.stdout = capOutput
-        main(["person", "--times=2"])        
+        main(["person", "--times=2"])
         sys.stdout = sys.__stdout__
         assert capOutput.getvalue() == "Hello person\n" * 2

@@ -1,12 +1,13 @@
 import unittest
 from mock import patch, Mock
 import sys
-sys.path.append('/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib')
+
+sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
 import dls_pmacremote
 import socket
 
-class TestEthernetInterface(unittest.TestCase):
 
+class TestEthernetInterface(unittest.TestCase):
     def setUp(self):
         self.obj = dls_pmacremote.PmacEthernetInterface()
         self.obj.hostname = "test"
@@ -28,7 +29,10 @@ class TestEthernetInterface(unittest.TestCase):
         ret = self.obj.connect()
         assert ret == "ERROR: hostname or port number not set"
 
-    @patch("dls_pmacremote.PmacEthernetInterface._sendCommand", return_value="1.945  \r\x06")
+    @patch(
+        "dls_pmacremote.PmacEthernetInterface._sendCommand",
+        return_value="1.945  \r\x06",
+    )
     @patch("socket.socket")
     def test_connects(self, mock_socket, mock_response):
         self.obj.connect()
@@ -36,7 +40,9 @@ class TestEthernetInterface(unittest.TestCase):
         assert mock_response.called
         assert self.obj.isConnectionOpen == True
 
-    @patch("dls_pmacremote.PmacEthernetInterface._sendCommand", return_value="incorrect")
+    @patch(
+        "dls_pmacremote.PmacEthernetInterface._sendCommand", return_value="incorrect"
+    )
     @patch("socket.socket")
     def test_incorrect_response(self, mock_socket, mock_response):
         ret = self.obj.connect()
@@ -60,7 +66,7 @@ class TestEthernetInterface(unittest.TestCase):
         mock_instance = Mock()
         mock_instance.connect.side_effect = socket.gaierror
         mock_socket.return_value = mock_instance
-        self.obj.hostname = 'unknown'
+        self.obj.hostname = "unknown"
         ret = self.obj.connect()
         assert mock_socket.called
         assert ret == "ERROR: unknown host"
@@ -76,18 +82,22 @@ class TestEthernetInterface(unittest.TestCase):
 
     def test_sendCommand_unexpected_terminator(self):
         self.obj.sock = Mock()
-        attrs = {"settimeout.return_value" : None,
-        "sendall.return_value" : "",
-        "recv.return_value" : "response".encode()}
+        attrs = {
+            "settimeout.return_value": None,
+            "sendall.return_value": "",
+            "recv.return_value": "response".encode(),
+        }
         self.obj.sock.configure_mock(**attrs)
         with self.assertRaises(OSError):
             ret = self.obj._sendCommand("cmd")
 
     def test_sendCommand(self):
         self.obj.sock = Mock()
-        attrs = {"settimeout.return_value" : None,
-        "sendall.return_value" : "",
-        "recv.return_value" : "response\x0D".encode()}
+        attrs = {
+            "settimeout.return_value": None,
+            "sendall.return_value": "",
+            "recv.return_value": "response\x0D".encode(),
+        }
         self.obj.sock.configure_mock(**attrs)
         ret = self.obj._sendCommand("cmd")
         assert ret == "response\x0D"

@@ -1,15 +1,16 @@
 import unittest
 from mock import patch, Mock
 import sys
-sys.path.append('/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib')
+
+sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
 import dls_pmacremote
 import paramiko
 import socket
 import serial
 import types
 
-class TestRemotePmacInterface(unittest.TestCase):
 
+class TestRemotePmacInterface(unittest.TestCase):
     def setUp(self):
         self.obj = dls_pmacremote.RemotePmacInterface()
         self.obj.verboseMode = False
@@ -19,7 +20,7 @@ class TestRemotePmacInterface(unittest.TestCase):
         assert self.obj.hostname == "localhost"
         assert self.obj.port == None
 
-    @patch("dls_pmacremote.RemotePmacInterface._sendCommand", return_value = "response")
+    @patch("dls_pmacremote.RemotePmacInterface._sendCommand", return_value="response")
     def test_send_command(self, mock_send_cmd):
         response, success = self.obj.sendCommand("test")
         assert response == "response"
@@ -60,7 +61,7 @@ class TestRemotePmacInterface(unittest.TestCase):
 
     @patch("dls_pmacremote.RemotePmacInterface.getIVars")
     def test_get_num_macro_station_axes(self, mock_get_ivars):
-        mock_get_ivars.return_value = [1,2,3,4]
+        mock_get_ivars.return_value = [1, 2, 3, 4]
         assert self.obj._getNumberOfMacroStationAxes() == 32
 
     @patch("dls_pmacremote.RemotePmacInterface._getNumberOfMacroStationAxes")
@@ -78,18 +79,18 @@ class TestRemotePmacInterface(unittest.TestCase):
     def test_getAxisMsIVars(self, mock_check, mock_get, mock_sendcmd):
         mock_get.return_value = 10
         mock_sendcmd.return_value = ("response\rresponse\rresponse\rx06", True)
-        ret = self.obj.getAxisMsIVars(2, [100,200,300])
+        ret = self.obj.getAxisMsIVars(2, [100, 200, 300])
         assert mock_check.called
         assert mock_get.called
         mock_sendcmd.assert_called_with("ms10,i100 ms10,i200 ms10,i300 ")
-        assert ret == ["response","response","response"]
+        assert ret == ["response", "response", "response"]
 
     @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
     def test_getIVars(self, mock_sendcmd):
         mock_sendcmd.return_value = ("response\rresponse\rresponse\rx06", True)
-        ret = self.obj.getIVars(100,[1,2,3])
+        ret = self.obj.getIVars(100, [1, 2, 3])
         mock_sendcmd.assert_called_with("i101 i102 i103 ")
-        assert ret == ["response","response","response"]
+        assert ret == ["response", "response", "response"]
 
     @patch("dls_pmacremote.RemotePmacInterface.isMacroStationAxis")
     @patch("dls_pmacremote.RemotePmacInterface.checkAxisIsInRange")
@@ -144,8 +145,8 @@ class TestRemotePmacInterface(unittest.TestCase):
 
     @patch("dls_pmacremote.RemotePmacInterface.sendCommand")
     def test_disable_limits_not_enabled_disable_true(self, mock_send_cmd):
-        mock_send_cmd.return_value = ("$820401\r\x06",True)
-        cmd, retStr, status = self.obj.disableLimits(1,True)
+        mock_send_cmd.return_value = ("$820401\r\x06", True)
+        cmd, retStr, status = self.obj.disableLimits(1, True)
         assert cmd == ""
         assert retStr == ""
         assert status == False

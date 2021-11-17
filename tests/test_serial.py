@@ -2,12 +2,13 @@ import unittest
 import re
 from mock import patch, Mock
 import sys
-sys.path.append('/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib')
+
+sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
 import dls_pmacremote
 import serial
 
-class TestSerialInterface(unittest.TestCase):
 
+class TestSerialInterface(unittest.TestCase):
     def setUp(self):
         self.obj = dls_pmacremote.PmacSerialInterface()
         self.obj.hostname = "hostname"
@@ -61,11 +62,13 @@ class TestSerialInterface(unittest.TestCase):
         self.obj.timeout = 0.5
         self.obj.n_timeouts = 0
         self.obj.serial = Mock()
-        attrs = {"inWaiting.return_value" : False,
-        "readLine.return_value" : None,
-        "write.return_value" : None,
-        "read.return_value" : "response".encode()}
+        attrs = {
+            "inWaiting.return_value": False,
+            "readLine.return_value": None,
+            "write.return_value": None,
+            "read.return_value": "response".encode(),
+        }
         self.obj.serial.configure_mock(**attrs)
         ret = self.obj._sendCommand("cmd")
-        self.assertRegex(ret,"^(response)+$")
+        self.assertRegex(ret, "^(response)+$")
         assert self.obj.n_timeouts == 1
