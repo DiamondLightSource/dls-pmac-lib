@@ -13,6 +13,10 @@ class TestTelnetInterface(unittest.TestCase):
         self.obj.port = 123
         self.obj.verboseMode = False
 
+    def test_init(self):
+        assert self.obj.tn == None
+        assert len(self.obj.lstRegExps) == 5
+
     @patch("telnetlib.Telnet")
     def test_hostname_not_set(self, mock_telnet):
         self.obj.hostname = None
@@ -23,9 +27,13 @@ class TestTelnetInterface(unittest.TestCase):
     @patch("dls_pmacremote.PmacTelnetInterface._sendCommand")
     @patch("telnetlib.Telnet")
     def test_connects(self, mock_telnet, mock_sendcmd):
+        mock_instance = Mock()
+        mock_instance.open.return_value = None
+        mock_telnet.return_value = mock_instance
         ret = self.obj.connect()
         assert mock_telnet.called
-        assert mock_sendcmd.called
+        mock_instance.open.assert_called_with("hostname", 123)
+        mock_sendcmd.assert_called_with("ver")
         assert ret == None
         assert self.obj.isConnectionOpen == True
 
@@ -34,9 +42,12 @@ class TestTelnetInterface(unittest.TestCase):
     def test_connect_exception(self, mock_telnet, mock_log):
         mock_instance = Mock()
         mock_instance.open.side_effect = Exception
+        mock_instance.close.return_value = None
         mock_telnet.return_value = mock_instance
         ret = self.obj.connect()
         assert mock_telnet.called
+        mock_instance.open.assert_called_with("hostname", 123)
+        assert mock_instance.close.called
         assert ret == (
             "ERROR: Could not open telnet session."
             + "\nException thrown: <class 'Exception'>"
@@ -52,13 +63,14 @@ class TestTelnetInterface(unittest.TestCase):
         self.obj.isConnectionOpen = True
         self.obj.tn = mock_connection.return_value
         self.obj.disconnect()
+        assert self.obj.tn.close.called
         assert self.obj.isConnectionOpen == False
 
     @patch("telnetlib.Telnet")
     def test_sendCommand(self, mock_telnet):
         self.obj.tn = Mock()
         attrs = {
-            "sock_avail.return_value": None,
+            "sock_avail.return_value": False,
             "read_very_eager.return_value": None,
             "write.return_value": None,
             "expect.return_value": (0, None, "response\x0D".encode()),
@@ -66,3 +78,6 @@ class TestTelnetInterface(unittest.TestCase):
         self.obj.tn.configure_mock(**attrs)
         ret = self.obj._sendCommand("cmd")
         assert ret == "response\x0D"
+        assert self.obj.tn.sock_avail.called
+        self.obj.tn.write.assert_called_with("cmd\r\n".encode("utf8"))
+        self.obj.tn.expect.assert_called_with(self.obj.lstRegExps, 3.0)

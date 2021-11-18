@@ -15,13 +15,22 @@ class TestSerialInterface(unittest.TestCase):
         self.obj.port = 1234
         self.obj.verboseMode = False
 
+    def test_init(self):
+        assert len(self.obj.lstRegExps) == 5
+
     @patch("dls_pmacremote.PmacSerialInterface._sendCommand")
     @patch("serial.Serial")
     def test_connects(self, mock_serial, mock_sendcmd):
-        ret = self.obj.connect()
-        assert mock_serial.called
-        assert mock_sendcmd.called
-        assert ret == None
+        assert self.obj.connect() == None
+        assert self.obj.baud_rate == 1234
+        assert self.obj.comm_port == "hostname"
+        assert self.obj.last_received_packet == ""
+        assert self.obj.last_comm_time == 0.0
+        assert self.obj.n_timeouts == 0
+        mock_serial.assert_called_with(
+            "hostname", 1234, timeout=3.0, rtscts=True, dsrdtr=True
+        )
+        mock_sendcmd.assert_called_with("ver")
         assert self.obj.isConnectionOpen == True
 
     @patch("serial.Serial")
@@ -29,33 +38,56 @@ class TestSerialInterface(unittest.TestCase):
         self.obj.isConnectionOpen = True
         ret = self.obj.connect()
         assert ret == "Socket is already open"
+        assert self.obj.baud_rate == 1234
+        assert self.obj.comm_port == "hostname"
+        assert self.obj.last_received_packet == ""
+        assert self.obj.last_comm_time == 0.0
+        assert self.obj.n_timeouts == 0
+        mock_serial.assert_called_with(
+            "hostname", 1234, timeout=3.0, rtscts=True, dsrdtr=True
+        )
 
     @patch("serial.Serial")
     def test_port_in_use(self, mock_serial):
         mock_serial.side_effect = serial.serialutil.SerialException
         ret = self.obj.connect()
         assert ret == "Port already in use!"
+        assert self.obj.baud_rate == 1234
+        assert self.obj.comm_port == "hostname"
+        assert self.obj.last_received_packet == ""
+        assert self.obj.last_comm_time == 0.0
+        assert self.obj.n_timeouts == 0
+        mock_serial.assert_called_with(
+            "hostname", 1234, timeout=3.0, rtscts=True, dsrdtr=True
+        )
+        assert self.obj.isConnectionOpen == False
 
     @patch("dls_pmacremote.PmacSerialInterface._sendCommand")
     @patch("serial.Serial")
     def test_connect_io_error(self, mock_serial, mock_sendcmd):
         mock_sendcmd.side_effect = IOError
-        self.obj.isConnectionOpen = False
         with self.assertRaises(IOError):
-            self.obj.connect()
+            assert self.obj.connect() == None
+        assert self.obj.baud_rate == 1234
+        assert self.obj.comm_port == "hostname"
+        assert self.obj.last_received_packet == ""
+        assert self.obj.last_comm_time == 0.0
+        assert self.obj.n_timeouts == 0
+        mock_serial.assert_called_with(
+            "hostname", 1234, timeout=3.0, rtscts=True, dsrdtr=True
+        )
+        mock_sendcmd.assert_called_with("ver")
         assert self.obj.isConnectionOpen == False
 
     def test_disconnect_no_connection_open(self):
-        self.obj.isConnectionOpen = False
-        ret = self.obj.disconnect()
-        assert ret == None
+        assert self.obj.disconnect() == None
 
-    @patch("serial.Serial")
-    def test_disconnect_connection_open(self, mock_serial):
+    def test_disconnect_connection_open(self):
+        self.obj.serial = Mock()
         self.obj.isConnectionOpen = True
-        self.obj.serial = mock_serial.return_value
-        self.obj.disconnect()
+        assert self.obj.disconnect() == None
         assert self.obj.isConnectionOpen == False
+        assert self.obj.serial.close.called
 
     @patch("dls_pmacremote.log")
     def test_sendCommand_timeout(self, mock_log):
@@ -64,11 +96,13 @@ class TestSerialInterface(unittest.TestCase):
         self.obj.serial = Mock()
         attrs = {
             "inWaiting.return_value": False,
-            "readLine.return_value": None,
             "write.return_value": None,
             "read.return_value": "response".encode(),
         }
         self.obj.serial.configure_mock(**attrs)
         ret = self.obj._sendCommand("cmd")
         self.assertRegex(ret, "^(response)+$")
+        self.obj.serial.write.assert_called_with("\r")
+        assert self.obj.serial.inWaiting.called
+        assert self.obj.serial.read.called
         assert self.obj.n_timeouts == 1
