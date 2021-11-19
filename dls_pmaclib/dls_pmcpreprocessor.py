@@ -136,8 +136,8 @@ class ClsPmacParser:
                         annoyingChar
                     )  # remove annoying white space characters
             self.output.append(inLine)
+        self.fPtr.close()
         return self.output
-        # print defines
 
     @staticmethod
     def substitute_macros(macro_dict, text):

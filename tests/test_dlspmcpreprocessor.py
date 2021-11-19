@@ -15,7 +15,6 @@ class TestPmcPreprocessor(unittest.TestCase):
         self.fh.close()
         self.obj = ClsPmacParser()
 
-    # @unittest.skip("file not closed")
     def test_parse(self):
         ret = self.obj.parse(pmcFileName=self.test_file)
         self.fh.close()
@@ -30,7 +29,6 @@ class TestPmcPreprocessor(unittest.TestCase):
         assert ret == 0
 
     def tearDown(self):
-        self.fh.close()
         os.remove(self.test_file)
 
 
@@ -42,13 +40,11 @@ class TestPmcPreprocessorDefine(unittest.TestCase):
         self.fh.close()
         self.obj = ClsPmacParser()
 
-    # @unittest.skip("file not closed")
     def test_parse_define(self):
         ret = self.obj.parse(pmcFileName=self.test_file)
         assert ret == ["", "P10 = 1"]
 
     def tearDown(self):
-        self.fh.close()
         os.remove(self.test_file)
 
 
@@ -70,7 +66,5 @@ class TestPmcPreprocessorInclude(unittest.TestCase):
         assert ret == ["", ""]
 
     def tearDown(self):
-        self.fh.close()
-        self.f.close()
         os.remove(self.include_file)
         os.remove(self.test_file)
