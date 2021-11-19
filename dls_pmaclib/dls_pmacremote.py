@@ -6,11 +6,11 @@ import sys
 import telnetlib
 import threading
 import time
-import paramiko
 from logging import getLogger
-from paramiko import SSHClient
 
+import paramiko
 import serial
+from paramiko import SSHClient
 
 log = getLogger("dls_pmaclib")
 
@@ -638,7 +638,7 @@ class PPmacSshInterface(RemotePmacInterface):
             )
         except paramiko.ssh_exception.AuthenticationException:
             return "Invalid username or password"
-        except:
+        except Exception:
             return "Cannot connect to " + self.hostname + " " + str(self.port)
 
         self.start_gpascii()
@@ -735,7 +735,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 response = response.replace("\x06", "")
                 response = response.replace("\r\r\r", "\r")
                 return response
-            except:
+            except Exception:
                 return None
         finally:
             if shouldWait:
@@ -752,7 +752,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 sftp.get(remotePath, localPath)
                 sftp.close()
 
-            except:
+            except Exception:
                 print("Unable to get '%s' from remote host" % remotePath)
 
         finally:
@@ -770,7 +770,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 sftp.put(localPath, remotePath)
                 sftp.close()
 
-            except:
+            except Exception:
                 print("Unable to copy '%s' to remote host" % localPath)
 
         finally:
@@ -788,7 +788,7 @@ class PPmacSshInterface(RemotePmacInterface):
             try:
                 ssh_stdin, ssh_stdout, ssh_stderr = self.client.exec_command(cmd)
 
-            except:
+            except Exception:
                 print("Unable to send command: '%s' via ssh" % cmd)
 
         finally:

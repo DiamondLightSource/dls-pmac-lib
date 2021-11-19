@@ -1,9 +1,7 @@
 import unittest
-from mock import patch, Mock
-import sys
 
-sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
-import dls_pmacremote
+import dls_pmaclib.dls_pmacremote as dls_pmacremote
+from mock import Mock, patch
 
 
 class TestTelnetInterface(unittest.TestCase):
@@ -14,7 +12,7 @@ class TestTelnetInterface(unittest.TestCase):
         self.obj.verboseMode = False
 
     def test_init(self):
-        assert self.obj.tn == None
+        assert self.obj.tn is None
         assert len(self.obj.lstRegExps) == 5
 
     @patch("telnetlib.Telnet")
@@ -24,7 +22,7 @@ class TestTelnetInterface(unittest.TestCase):
         assert mock_telnet.called
         assert ret == "ERROR: Could not open telnet session. No hostname set."
 
-    @patch("dls_pmacremote.PmacTelnetInterface._sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PmacTelnetInterface._sendCommand")
     @patch("telnetlib.Telnet")
     def test_connects(self, mock_telnet, mock_sendcmd):
         mock_instance = Mock()
@@ -34,10 +32,10 @@ class TestTelnetInterface(unittest.TestCase):
         assert mock_telnet.called
         mock_instance.open.assert_called_with("hostname", 123)
         mock_sendcmd.assert_called_with("ver")
-        assert ret == None
-        assert self.obj.isConnectionOpen == True
+        assert ret is None
+        assert self.obj.isConnectionOpen is True
 
-    @patch("dls_pmacremote.log")
+    @patch("dls_pmaclib.dls_pmacremote.log")
     @patch("telnetlib.Telnet")
     def test_connect_exception(self, mock_telnet, mock_log):
         mock_instance = Mock()
@@ -52,11 +50,11 @@ class TestTelnetInterface(unittest.TestCase):
             "ERROR: Could not open telnet session."
             + "\nException thrown: <class 'Exception'>"
         )
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.isConnectionOpen is False
 
     def test_disconnect_no_connection_open(self):
         self.obj.isConnectionOpen = False
-        assert self.obj.disconnect() == None
+        assert self.obj.disconnect() is None
 
     @patch("telnetlib.Telnet")
     def test_disconnect_connection_open(self, mock_connection):
@@ -64,7 +62,7 @@ class TestTelnetInterface(unittest.TestCase):
         self.obj.tn = mock_connection.return_value
         self.obj.disconnect()
         assert self.obj.tn.close.called
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.isConnectionOpen is False
 
     @patch("telnetlib.Telnet")
     def test_sendCommand(self, mock_telnet):

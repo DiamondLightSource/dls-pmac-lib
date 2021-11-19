@@ -1,11 +1,8 @@
 import unittest
-import re
-from mock import patch, Mock
-import sys
 
-sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
-import dls_pmacremote
+import dls_pmaclib.dls_pmacremote as dls_pmacremote
 import serial
+from mock import Mock, patch
 
 
 class TestSerialInterface(unittest.TestCase):
@@ -18,10 +15,10 @@ class TestSerialInterface(unittest.TestCase):
     def test_init(self):
         assert len(self.obj.lstRegExps) == 5
 
-    @patch("dls_pmacremote.PmacSerialInterface._sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PmacSerialInterface._sendCommand")
     @patch("serial.Serial")
     def test_connects(self, mock_serial, mock_sendcmd):
-        assert self.obj.connect() == None
+        assert self.obj.connect() is None
         assert self.obj.baud_rate == 1234
         assert self.obj.comm_port == "hostname"
         assert self.obj.last_received_packet == ""
@@ -31,7 +28,7 @@ class TestSerialInterface(unittest.TestCase):
             "hostname", 1234, timeout=3.0, rtscts=True, dsrdtr=True
         )
         mock_sendcmd.assert_called_with("ver")
-        assert self.obj.isConnectionOpen == True
+        assert self.obj.isConnectionOpen is True
 
     @patch("serial.Serial")
     def test_connection_already_open(self, mock_serial):
@@ -60,14 +57,14 @@ class TestSerialInterface(unittest.TestCase):
         mock_serial.assert_called_with(
             "hostname", 1234, timeout=3.0, rtscts=True, dsrdtr=True
         )
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.isConnectionOpen is False
 
-    @patch("dls_pmacremote.PmacSerialInterface._sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PmacSerialInterface._sendCommand")
     @patch("serial.Serial")
     def test_connect_io_error(self, mock_serial, mock_sendcmd):
         mock_sendcmd.side_effect = IOError
         with self.assertRaises(IOError):
-            assert self.obj.connect() == None
+            assert self.obj.connect() is None
         assert self.obj.baud_rate == 1234
         assert self.obj.comm_port == "hostname"
         assert self.obj.last_received_packet == ""
@@ -77,19 +74,19 @@ class TestSerialInterface(unittest.TestCase):
             "hostname", 1234, timeout=3.0, rtscts=True, dsrdtr=True
         )
         mock_sendcmd.assert_called_with("ver")
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.isConnectionOpen is False
 
     def test_disconnect_no_connection_open(self):
-        assert self.obj.disconnect() == None
+        assert self.obj.disconnect() is None
 
     def test_disconnect_connection_open(self):
         self.obj.serial = Mock()
         self.obj.isConnectionOpen = True
-        assert self.obj.disconnect() == None
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.disconnect() is None
+        assert self.obj.isConnectionOpen is False
         assert self.obj.serial.close.called
 
-    @patch("dls_pmacremote.log")
+    @patch("dls_pmaclib.dls_pmacremote.log")
     def test_sendCommand_timeout(self, mock_log):
         self.obj.timeout = 0.5
         self.obj.n_timeouts = 0

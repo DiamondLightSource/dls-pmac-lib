@@ -1,10 +1,8 @@
-import unittest
-from mock import patch, Mock
-import sys
-
-sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
-import dls_pmacremote
 import socket
+import unittest
+
+import dls_pmaclib.dls_pmacremote as dls_pmacremote
+from mock import Mock, patch
 
 
 class TestEthernetInterface(unittest.TestCase):
@@ -15,7 +13,7 @@ class TestEthernetInterface(unittest.TestCase):
         self.obj.verboseMode = False
 
     def test_init(self):
-        assert self.obj.sock == None
+        assert self.obj.sock is None
 
     def test_connection_already_open(self):
         self.obj.isConnectionOpen = True
@@ -32,7 +30,7 @@ class TestEthernetInterface(unittest.TestCase):
         ret = self.obj.connect()
         assert ret == "ERROR: hostname or port number not set"
 
-    @patch("dls_pmacremote.PmacEthernetInterface._sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PmacEthernetInterface._sendCommand")
     @patch("socket.socket")
     def test_connects(self, mock_socket, mock_response):
         mock_response.return_value = "1.945  \r\x06"
@@ -40,15 +38,15 @@ class TestEthernetInterface(unittest.TestCase):
         mock_instance.settimeout.return_value = None
         mock_instance.connect.return_value = None
         mock_socket.return_value = mock_instance
-        assert self.obj.connect() == None
+        assert self.obj.connect() is None
         assert mock_socket.called
         mock_instance.settimeout.assert_called_with(3.0)
         mock_instance.connect.assert_called_with(("test", 1234))
         mock_response.assert_called_with("i6=1 i3=2 ver")
-        assert self.obj.isConnectionOpen == True
+        assert self.obj.isConnectionOpen is True
 
-    @patch("dls_pmacremote.PmacEthernetInterface.disconnect")
-    @patch("dls_pmacremote.PmacEthernetInterface._sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PmacEthernetInterface.disconnect")
+    @patch("dls_pmaclib.dls_pmacremote.PmacEthernetInterface._sendCommand")
     @patch("socket.socket")
     def test_incorrect_response(self, mock_socket, mock_response, mock_disconnect):
         mock_response.return_value = "incorrect"
@@ -64,8 +62,8 @@ class TestEthernetInterface(unittest.TestCase):
         assert mock_disconnect.called
         assert ret == 'Device did not respond correctly to a "ver" command'
 
-    @patch("dls_pmacremote.PmacEthernetInterface.disconnect")
-    @patch("dls_pmacremote.PmacEthernetInterface._sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PmacEthernetInterface.disconnect")
+    @patch("dls_pmaclib.dls_pmacremote.PmacEthernetInterface._sendCommand")
     @patch("socket.socket")
     def test_no_response(self, mock_socket, mock_sendcmd, mock_disconnect):
         mock_instance = Mock()
@@ -107,14 +105,14 @@ class TestEthernetInterface(unittest.TestCase):
 
     def test_disconnect_no_connection_open(self):
         self.obj.isConnectionOpen = False
-        assert self.obj.disconnect() == None
+        assert self.obj.disconnect() is None
 
     def test_disconnect_connection_open(self):
         self.obj.sock = Mock()
         self.obj.sock.close.return_value = None
         self.obj.isConnectionOpen = True
         self.obj.disconnect()
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.isConnectionOpen is False
         assert self.obj.sock.close.called
 
     def test_sendCommand_unexpected_terminator(self):

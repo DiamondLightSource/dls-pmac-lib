@@ -1,11 +1,8 @@
 import unittest
-from mock import patch, Mock
-import sys
 
-sys.path.append("/home/dlscontrols/bem-osl/dls-pmac-lib/dls_pmaclib")
-import dls_pmacremote
+import dls_pmaclib.dls_pmacremote as dls_pmacremote
 import paramiko
-import types
+from mock import Mock, patch
 
 
 class TestSshInterface(unittest.TestCase):
@@ -16,18 +13,18 @@ class TestSshInterface(unittest.TestCase):
         self.obj.port = 22
 
     def test_init(self):
-        assert self.obj.client == None
+        assert self.obj.client is None
         assert self.obj.num_recv_bytes == 8192
 
-    @patch("dls_pmacremote.PPmacSshInterface.client.invoke_shell")
-    @patch("dls_pmacremote.PPmacSshInterface.client")
+    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.client.invoke_shell")
+    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.client")
     def test_start_gpascii(self, mock_client, mock_gpascii):
         mock_instance = Mock()
         mock_instance.send.return_value = None
         mock_instance.recv.return_value = "ASCII".encode()
         mock_gpascii.return_value = mock_instance
-        assert self.obj.start_gpascii() == None
-        assert self.obj.gpascii_issued == True
+        assert self.obj.start_gpascii() is None
+        assert self.obj.gpascii_issued is True
         mock_gpascii.assert_called_with(term="vt100")
         mock_instance.send.assert_called_with("gpascii -2\r\n")
         mock_instance.recv.assert_called_with(2048)
@@ -41,8 +38,8 @@ class TestSshInterface(unittest.TestCase):
         assert self.obj.connect() == "ERROR: hostname not set"
 
     # when obj.connect() called, SSHClient object is initialised
-    @patch("dls_pmacremote.PPmacSshInterface.sendCommand")
-    @patch("dls_pmacremote.PPmacSshInterface.start_gpascii")
+    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.start_gpascii")
     @patch("paramiko.client.SSHClient.connect")
     @patch("paramiko.AutoAddPolicy")
     @patch("paramiko.client.SSHClient.set_missing_host_key_policy")
@@ -53,7 +50,7 @@ class TestSshInterface(unittest.TestCase):
         mock_policy.return_value = None
         mock_connect.return_value = None
         mock_sendcmd.return_value = ("response", True)
-        assert self.obj.connect() == None
+        assert self.obj.connect() is None
         assert mock_policy.called
         assert mock_autoadd.called
         mock_connect.assert_called_with(
@@ -61,7 +58,7 @@ class TestSshInterface(unittest.TestCase):
         )
         assert mock_gpascii.called
         mock_sendcmd.assert_called_with("echo 7")
-        assert self.obj.isConnectionOpen == True
+        assert self.obj.isConnectionOpen is True
 
     # when obj.connect() called, SSHClient object is initialised
     @patch("paramiko.client.SSHClient.connect")
@@ -78,7 +75,7 @@ class TestSshInterface(unittest.TestCase):
         mock_connect.assert_called_with(
             "test", 22, username="incorrect", password="incorrect", timeout=3.0
         )
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.isConnectionOpen is False
 
     # when obj.connect() called, SSHClient object is initialised
     @patch("paramiko.client.SSHClient.connect")
@@ -95,7 +92,7 @@ class TestSshInterface(unittest.TestCase):
         mock_connect.assert_called_with(
             "test", 22, username="root", password="deltatau", timeout=3.0
         )
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.isConnectionOpen is False
 
     # when obj.connect() called, SSHClient object is initialised
     @patch("paramiko.client.SSHClient.connect")
@@ -113,19 +110,19 @@ class TestSshInterface(unittest.TestCase):
         mock_connect.assert_called_with(
             "test", None, username="root", password="deltatau", timeout=3.0
         )
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.isConnectionOpen is False
 
     def test_disconnect_no_connection_open(self):
-        assert self.obj.disconnect() == None
+        assert self.obj.disconnect() is None
 
     def test_disconnect_connection_open(self):
         self.obj.client = Mock()
         self.obj.isConnectionOpen = True
-        assert self.obj.disconnect() == None
-        assert self.obj.isConnectionOpen == False
+        assert self.obj.disconnect() is None
+        assert self.obj.isConnectionOpen is False
         assert self.obj.client.close.called
 
-    @patch("dls_pmacremote.PPmacSshInterface.getPmacModelCode")
+    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.getPmacModelCode")
     def test_get_pmac_model(self, mock_getcode):
         mock_getcode.return_value = 604020
         assert self.obj.getPmacModel() == "Power PMAC UMAC"
@@ -135,21 +132,21 @@ class TestSshInterface(unittest.TestCase):
         self.obj._pmacModelName = "name"
         assert self.obj.getPmacModel() == "name"
 
-    @patch("dls_pmacremote.PPmacSshInterface.getPmacModelCode")
+    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.getPmacModelCode")
     def test_get_pmac_model_unsupported(self, mock_get_model_code):
         mock_get_model_code.return_value = 0
         with self.assertRaises(ValueError):
             assert self.obj.getPmacModel() == "Unsupported PMAC model"
-        assert self.obj._pmacModelName == None
+        assert self.obj._pmacModelName is None
         assert mock_get_model_code.called
 
-    @patch("dls_pmacremote.PPmacSshInterface.sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.sendCommand")
     def test_get_pmac_model_code(self, mock_send_cmd):
         mock_send_cmd.return_value = ("123456", True)
         assert self.obj.getPmacModelCode() == 123456
         mock_send_cmd.assert_called_with("cid")
 
-    @patch("dls_pmacremote.PPmacSshInterface.sendCommand")
+    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.sendCommand")
     def test_get_number_axes(self, mock_send_cmd):
         mock_send_cmd.return_value = ("5", True)
         assert self.obj.getNumberOfAxes() == 4
@@ -172,7 +169,7 @@ class TestSshInterface(unittest.TestCase):
         self.obj.client = Mock()
         attrs = {"open_sftp.return_value": Mock()}
         self.obj.client.configure_mock(**attrs)
-        assert self.obj.getFile("remote", "local") == None
+        assert self.obj.getFile("remote", "local") is None
         assert self.obj.client.open_sftp.called
         self.obj.client.open_sftp().get.assert_called_with("remote", "local")
         assert self.obj.client.open_sftp().close.called
@@ -181,7 +178,7 @@ class TestSshInterface(unittest.TestCase):
         self.obj.client = Mock()
         attrs = {"open_sftp.return_value": Mock()}
         self.obj.client.configure_mock(**attrs)
-        assert self.obj.putFile("local", "remote") == None
+        assert self.obj.putFile("local", "remote") is None
         assert self.obj.client.open_sftp.called
         self.obj.client.open_sftp().put.assert_called_with("local", "remote")
         assert self.obj.client.open_sftp().close.called
@@ -190,5 +187,5 @@ class TestSshInterface(unittest.TestCase):
         self.obj.client = Mock()
         attrs = {"exec_command.return_value": ("in", "out", "err")}
         self.obj.client.configure_mock(**attrs)
-        assert self.obj.sendSshCommand("cmd") == None
+        assert self.obj.sendSshCommand("cmd") is None
         self.obj.client.exec_command.assert_called_with("cmd\n")
