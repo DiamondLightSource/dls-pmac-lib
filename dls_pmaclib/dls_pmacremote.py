@@ -413,7 +413,7 @@ class RemotePmacInterface:
             raise ValueError("Axis %d is not an onboard axis" % axis)
 
         # Calculate the base
-        m = (axis - 1) / 4  # m in 0..9
+        m = (axis - 1) // 4  # m in 0..9
         n = (axis - 1) % 4 + 1  # n in 1..4
         base = 7000 + m * 100 + n * 10
         return base
