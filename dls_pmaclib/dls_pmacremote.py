@@ -331,7 +331,7 @@ class RemotePmacInterface:
     # Returns: Macro station number
     # Raises: ValueError if asking for non-existent axis, or not a MACRO ring
     # axis
-    def getAxisMacroStationNumber(self, axis):
+    def getAxisMacroStationNumber(self, axis, macroAxisStartIndex=0):
         self.checkAxisIsInRange(axis)
         if not self.isModelGeobrick():
             return self.MACRO_STATION_LOOKUP_TABLE[axis - 1]
@@ -339,7 +339,7 @@ class RemotePmacInterface:
             if axis <= 8:
                 raise ValueError("Axis %d is not on the MACRO ring" % axis)
             else:
-                return self.MACRO_STATION_LOOKUP_TABLE[(axis - 8) - 1]
+                return self.MACRO_STATION_LOOKUP_TABLE[(axis - 8) - 1] + macroAxisStartIndex
 
     # Return True if this is a macro station axis, False if it is an
     # on-board-PMAC axis
@@ -385,9 +385,9 @@ class RemotePmacInterface:
         self.setVar("i%d" % iVar, value)
 
     # Get macro station I-variables for a particular axis (or None on failure)
-    def getAxisMsIVars(self, axis, msIVars):
+    def getAxisMsIVars(self, axis, msIVars, macroAxisStart = 0):
         self.checkAxisIsInRange(axis)
-        macroStationNo = self.getAxisMacroStationNumber(axis)
+        macroStationNo = self.getAxisMacroStationNumber(axis, macroAxisStart)
         cmd = ""
         for msIVar in msIVars:
             cmd += "ms%d,i%d " % (macroStationNo, msIVar)
