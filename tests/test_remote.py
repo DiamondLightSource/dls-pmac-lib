@@ -242,7 +242,7 @@ class TestRemotePmacInterface(unittest.TestCase):
     def test_getOnboardAxisI7000PlusVarsBase(self, mock_check, mock_macro):
         mock_check.return_value = None
         mock_macro.return_value = False
-        assert self.obj.getOnboardAxisI7000PlusVarsBase(4) == 7115
+        assert self.obj.getOnboardAxisI7000PlusVarsBase(4) == 7040
         mock_check.assert_called_with(4)
         mock_macro.assert_called_with(4)
 
