@@ -221,7 +221,7 @@ class TestRemotePmacInterface(unittest.TestCase):
         mock_sendcmd.return_value = ("response\rresponse\rresponse\rx06", True)
         ret = self.obj.getAxisMsIVars(2, [100, 200, 300])
         mock_check.assert_called_with(2)
-        mock_get.assert_called_with(2)
+        mock_get.assert_called_with(2, 0)
         mock_sendcmd.assert_called_with("ms10,i100 ms10,i200 ms10,i300 ")
         assert ret == ["response", "response", "response"]
 

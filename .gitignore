@@ -65,6 +65,7 @@ target/
 /venv/
 /lightweight-venv/
 /installed.files
+Pipfile.lock
 
 # virtualenv
 venv/
