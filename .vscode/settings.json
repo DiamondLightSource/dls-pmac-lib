@@ -9,5 +9,6 @@
   "python.formatting.provider": "black",
   "python.jediEnabled": false,
   "restructuredtext.confPath": "${workspaceFolder}/docs",
-  "python.pythonPath": "/scratch/sfx44126/pipenv/dls_pmaclib-LkGA4gdO/bin/python",
+"python.pythonPath": "/scratch/sfx44126/pipenv/dls_pmaclib-LkGA4gdO/bin/python",
+"python.languageServer": "Microsoft",
 }
