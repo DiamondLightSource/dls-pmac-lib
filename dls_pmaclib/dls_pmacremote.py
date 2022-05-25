@@ -303,6 +303,9 @@ class RemotePmacInterface:
                 "present)" % str(macroIcAddresses)
             )
         controllableAxesCount = 0
+        # Check if an error is returned instead of 4 element array
+        if len(macroIcAddresses) != 4:
+                return controllableAxesCount
         for i in range(4):
             if macroIcAddresses[i] != "$0":
                 controllableAxesCount += 8
