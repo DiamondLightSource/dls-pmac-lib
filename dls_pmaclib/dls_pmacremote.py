@@ -641,6 +641,7 @@ class PPmacSshInterface(RemotePmacInterface):
                 username=username,
                 password=password,
                 timeout=timeout,
+                allow_agent=False,
             )
         except paramiko.ssh_exception.AuthenticationException:
             return "Invalid username or password"
