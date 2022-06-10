@@ -54,7 +54,12 @@ class TestSshInterface(unittest.TestCase):
         assert mock_policy.called
         assert mock_autoadd.called
         mock_connect.assert_called_with(
-            "test", 22, username="root", password="deltatau", timeout=3.0
+            "test",
+            22,
+            username="root",
+            password="deltatau",
+            timeout=3.0,
+            allow_agent=False,
         )
         assert mock_gpascii.called
         mock_sendcmd.assert_called_with("echo 7")
@@ -73,7 +78,12 @@ class TestSshInterface(unittest.TestCase):
         assert mock_policy.called
         assert mock_autoadd.called
         mock_connect.assert_called_with(
-            "test", 22, username="incorrect", password="incorrect", timeout=3.0
+            "test",
+            22,
+            username="incorrect",
+            password="incorrect",
+            timeout=3.0,
+            allow_agent=False,
         )
         assert self.obj.isConnectionOpen is False
 
@@ -90,7 +100,12 @@ class TestSshInterface(unittest.TestCase):
         assert mock_policy.called
         assert mock_autoadd.called
         mock_connect.assert_called_with(
-            "test", 22, username="root", password="deltatau", timeout=3.0
+            "test",
+            22,
+            username="root",
+            password="deltatau",
+            timeout=3.0,
+            allow_agent=False,
         )
         assert self.obj.isConnectionOpen is False
 
@@ -108,7 +123,12 @@ class TestSshInterface(unittest.TestCase):
         assert mock_policy.called
         assert mock_autoadd.called
         mock_connect.assert_called_with(
-            "test", None, username="root", password="deltatau", timeout=3.0
+            "test",
+            None,
+            username="root",
+            password="deltatau",
+            timeout=3.0,
+            allow_agent=False,
         )
         assert self.obj.isConnectionOpen is False
 
