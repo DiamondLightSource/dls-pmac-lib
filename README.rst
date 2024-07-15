@@ -13,14 +13,14 @@ Full documentation is available at http://dls_pmaclib.readthedocs.io
 Source Code
 -----------
 
-Available from http://github.com/dls-controls/dls_pmaclib
+Available from http://github.com/DiamondLightSource/dls_pmaclib
 
 Installation
 ------------
 
 To start using this project::
 
-    git clone https://github.com/dls-controls/dls_pmaclib
+    git clone https://github.com/DiamondLightSource/dls_pmaclib
 
 Contributing
 ------------
@@ -32,12 +32,12 @@ License
 APACHE License. (see `LICENSE`_)
 
 
-.. |build_status| image:: https://travis-ci.com/dls-controls/dls_pmaclib.svg?branch=master
-    :target: https://travis-ci.com/dls-controls/dls_pmaclib
+.. |build_status| image:: https://travis-ci.com/DiamondLightSource/dls_pmaclib.svg?branch=master
+    :target: https://travis-ci.com/DiamondLightSource/dls_pmaclib
     :alt: Build Status
 
-.. |coverage| image:: https://coveralls.io/repos/github/dls-controls/dls_pmaclib/badge.svg?branch=master
-    :target: https://coveralls.io/github/dls-controls/dls_pmaclib?branch=master
+.. |coverage| image:: https://coveralls.io/repos/github/DiamondLightSource/dls_pmaclib/badge.svg?branch=master
+    :target: https://coveralls.io/github/DiamondLightSource/dls_pmaclib?branch=master
     :alt: Test Coverage
 
 .. |pypi_version| image:: https://badge.fury.io/py/dls_pmaclib.svg
@@ -49,7 +49,7 @@ APACHE License. (see `LICENSE`_)
     :alt: Documentation
 
 .. _CONTRIBUTING:
-    https://github.com/dls-controls/dls_pmaclib/blob/master/CONTRIBUTING.rst
+    https://github.com/DiamondLightSource/dls_pmaclib/blob/master/CONTRIBUTING.rst
 
 .. _LICENSE:
-    https://github.com/dls-controls/dls_pmaclib/blob/master/LICENSE
+    https://github.com/DiamondLightSource/dls_pmaclib/blob/master/LICENSE
