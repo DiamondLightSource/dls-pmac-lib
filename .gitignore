@@ -1,7 +1,6 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.class
 
 # C extensions
 *.so
@@ -23,6 +22,7 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+**/_version.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -42,10 +42,9 @@ htmlcov/
 .cache
 nosetests.xml
 coverage.xml
-*,cover
-*.mypy_cache
-*.pytest_cache
 cov.xml
+.pytest_cache/
+.mypy_cache/
 
 # Translations
 *.mo
@@ -56,21 +55,17 @@ cov.xml
 
 # Sphinx documentation
 docs/_build/
+docs/_api
 
 # PyBuilder
 target/
 
-# DLS build dir and virtual environment
-/prefix/
-/venv/
-/lightweight-venv/
-/installed.files
-Pipfile.lock
+# likely venv names
+.venv*
+venv*
 
-# virtualenv
-venv/
-ENV/
+# further build artifacts
+lockfiles/
 
-*~
-.svn*
-.idea
+# ruff cache
+.ruff_cache/
