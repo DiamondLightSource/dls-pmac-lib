@@ -2,7 +2,7 @@
 
 ..
    This page is not included in the TOC tree, but must exist so that the
-   autosummary pages are generated for dls_pmac_lib and all its
+   autosummary pages are generated for dls_pmaclib and all its
    subpackages
 
 API
@@ -13,4 +13,4 @@ API
     :template: custom-module-template.rst
     :recursive:
 
-    dls_pmac_lib
+    dls_pmaclib

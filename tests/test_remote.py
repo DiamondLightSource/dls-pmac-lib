@@ -1,8 +1,8 @@
 import types
 import unittest
+from unittest.mock import patch
 
 import dls_pmaclib.dls_pmacremote as dls_pmacremote
-from mock import patch
 
 
 class TestRemotePmacInterface(unittest.TestCase):

@@ -1,4 +1,4 @@
-"""Interface for ``python -m dls_pmac_lib``."""
+"""Interface for ``python -m dls_pmaclib``."""
 
 from argparse import ArgumentParser
 from collections.abc import Sequence

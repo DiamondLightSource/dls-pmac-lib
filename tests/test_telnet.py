@@ -1,7 +1,7 @@
 import unittest
+from unittest.mock import Mock, patch
 
 import dls_pmaclib.dls_pmacremote as dls_pmacremote
-from mock import Mock, patch
 
 
 class TestTelnetInterface(unittest.TestCase):
@@ -71,11 +71,11 @@ class TestTelnetInterface(unittest.TestCase):
             "sock_avail.return_value": False,
             "read_very_eager.return_value": None,
             "write.return_value": None,
-            "expect.return_value": (0, None, "response\x0D".encode()),
+            "expect.return_value": (0, None, b"response\x0d"),
         }
         self.obj.tn.configure_mock(**attrs)
         ret = self.obj._sendCommand("cmd")
-        assert ret == "response\x0D"
+        assert ret == "response\x0d"
         assert self.obj.tn.sock_avail.called
-        self.obj.tn.write.assert_called_with("cmd\r\n".encode("utf8"))
+        self.obj.tn.write.assert_called_with(b"cmd\r\n")
         self.obj.tn.expect.assert_called_with(self.obj.lstRegExps, 3.0)

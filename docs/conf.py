@@ -11,7 +11,7 @@ from subprocess import check_output
 
 import requests
 
-import dls_pmac_lib
+import dls_pmaclib
 
 # -- General configuration ------------------------------------------------
 
@@ -19,7 +19,7 @@ import dls_pmac_lib
 project = "dls-pmac-lib"
 
 # The full version, including alpha/beta/rc tags.
-release = dls_pmac_lib.__version__
+release = dls_pmaclib.__version__
 
 # The short X.Y version.
 if "+" in release:

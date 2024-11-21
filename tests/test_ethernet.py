@@ -1,8 +1,8 @@
 import socket
 import unittest
+from unittest.mock import Mock, patch
 
 import dls_pmaclib.dls_pmacremote as dls_pmacremote
-from mock import Mock, patch
 
 
 class TestEthernetInterface(unittest.TestCase):
@@ -120,7 +120,7 @@ class TestEthernetInterface(unittest.TestCase):
         attrs = {
             "settimeout.return_value": None,
             "sendall.return_value": "",
-            "recv.return_value": "response".encode(),
+            "recv.return_value": b"response",
         }
         self.obj.sock.configure_mock(**attrs)
         expected_ret = "PMAC communication error: unexpected terminator"
@@ -136,11 +136,11 @@ class TestEthernetInterface(unittest.TestCase):
         attrs = {
             "settimeout.return_value": None,
             "sendall.return_value": "",
-            "recv.return_value": "response\x0D".encode(),
+            "recv.return_value": b"response\x0d",
         }
         self.obj.sock.configure_mock(**attrs)
         ret = self.obj._sendCommand("cmd")
-        assert ret == "response\x0D"
+        assert ret == "response\x0d"
         self.obj.sock.settimeout.assert_called_with(3.0)
         getresponseRequest_ret = b"@\xbf\x00\x00\x00\x00\x00\x03cmd"
         self.obj.sock.sendall.assert_called_with(getresponseRequest_ret)

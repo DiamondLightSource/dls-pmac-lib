@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/dls-pmaclib.svg)](https://pypi.org/project/dls-pmaclib)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-# dls_pmac_lib
+# dls_pmaclib
 
 Python library for communicating with Delta Tau PMACs (both Turbo and Power)
 
@@ -22,15 +22,15 @@ some relevant examples. If it is a library then you might put some
 introductory code here:
 
 ```python
-from dls_pmac_lib import __version__
+from dls_pmaclib import __version__
 
-print(f"Hello dls_pmac_lib {__version__}")
+print(f"Hello dls_pmaclib {__version__}")
 ```
 
 Or if it is a commandline tool then you might put some example commands here:
 
 ```
-python -m dls_pmac_lib --version
+python -m dls_pmaclib --version
 ```
 
 <!-- README only content. Anything below this line won't be included in index.md -->

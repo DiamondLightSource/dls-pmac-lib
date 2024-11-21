@@ -1,8 +1,9 @@
 import unittest
+from unittest.mock import Mock, patch
+
+import serial
 
 import dls_pmaclib.dls_pmacremote as dls_pmacremote
-import serial
-from mock import Mock, patch
 
 
 class TestSerialInterface(unittest.TestCase):
@@ -94,7 +95,7 @@ class TestSerialInterface(unittest.TestCase):
         attrs = {
             "inWaiting.return_value": False,
             "write.return_value": None,
-            "read.return_value": "response".encode(),
+            "read.return_value": b"response",
         }
         self.obj.serial.configure_mock(**attrs)
         ret = self.obj._sendCommand("cmd")

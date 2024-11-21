@@ -1,8 +1,9 @@
 import unittest
+from unittest.mock import Mock, patch
+
+import paramiko
 
 import dls_pmaclib.dls_pmacremote as dls_pmacremote
-import paramiko
-from mock import Mock, patch
 
 
 class TestSshInterface(unittest.TestCase):
@@ -21,7 +22,7 @@ class TestSshInterface(unittest.TestCase):
     def test_start_gpascii(self, mock_client, mock_gpascii):
         mock_instance = Mock()
         mock_instance.send.return_value = None
-        mock_instance.recv.return_value = "ASCII".encode()
+        mock_instance.recv.return_value = b"ASCII"
         mock_gpascii.return_value = mock_instance
         assert self.obj.start_gpascii() is None
         assert self.obj.gpascii_issued is True
@@ -157,7 +158,7 @@ class TestSshInterface(unittest.TestCase):
         attrs = {
             "send.return_value": 2,
             "recv_ready.return_value": True,
-            "recv.return_value": "\x06\r\n\x06\r\n".encode(),
+            "recv.return_value": b"\x06\r\n\x06\r\n",
         }
         self.obj.gpascii_client.configure_mock(**attrs)
         assert self.obj._sendCommand("command") == "\r\r"

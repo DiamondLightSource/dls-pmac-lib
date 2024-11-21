@@ -51,9 +51,9 @@ class ClsPmacParser:
             defines = {}
 
         try:
-            self.fPtr = open(pmcFileName, "r")
+            self.fPtr = open(pmcFileName)
         except OSError:
-            log.error("Error: could not open file: %s" % pmcFileName)
+            log.error(f"Error: could not open file: {pmcFileName}")
             return None
 
         self.includePaths.insert(0, os.path.dirname(os.path.abspath(pmcFileName)))
@@ -63,9 +63,7 @@ class ClsPmacParser:
             # Plant simulation debug information
             lineNumber += 1
             if debug:
-                self.output.append(
-                    ";#* %s %s" % (os.path.abspath(pmcFileName), lineNumber)
-                )
+                self.output.append(f";#* {os.path.abspath(pmcFileName)} {lineNumber}")
 
             # for annoyingChar in ['\r','\n','\t']:
             # inLine = inLine.strip(annoyingChar)		# remove annoying white
@@ -100,7 +98,7 @@ class ClsPmacParser:
                     includeFile = includeFile.strip(' "\r')
                     for path in self.includePaths:
                         foundFileInPaths = False
-                        tmpFullFileName = "%s/%s" % (path, includeFile)
+                        tmpFullFileName = f"{path}/{includeFile}"
                         if os.path.lexists(tmpFullFileName):
                             includeFile = tmpFullFileName
                             foundFileInPaths = True
@@ -114,7 +112,7 @@ class ClsPmacParser:
                         self.output.append("")
                         continue
 
-                    log.info(";Parsing include file: %s" % includeFile)
+                    log.info(f";Parsing include file: {includeFile}")
                     p = ClsPmacParser(self.includePaths)
                     includeLines = p.parse(
                         includeFile, defines=defines, comments=comments, debug=debug

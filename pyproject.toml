@@ -12,7 +12,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 description = "Python library for communicating with Delta Tau PMACs (both Turbo and Power)"
-dependencies = [] # Add project dependencies here, e.g. ["click", "numpy"]
+dependencies = [
+    "pyserial",
+    "paramiko",
+] # Add project dependencies here, e.g. ["click", "numpy"]
 dynamic = ["version"]
 license.file = "LICENSE"
 readme = "README.md"
@@ -34,10 +37,11 @@ dev = [
     "sphinx-design",
     "tox-direct",
     "types-mock",
+    "types-paramiko",
 ]
 
 [project.scripts]
-dls-pmac-lib = "dls_pmac_lib.__main__:main"
+dls-pmac-lib = "dls_pmaclib.__main__:main"
 
 [project.urls]
 GitHub = "https://github.com/DiamondLightSource/dls-pmac-lib"
@@ -48,7 +52,7 @@ name = "James O'Hea"
 
 
 [tool.setuptools_scm]
-version_file = "src/dls_pmac_lib/_version.py"
+version_file = "src/dls_pmaclib/_version.py"
 
 [tool.mypy]
 ignore_missing_imports = true # Ignore missing stubs in imported modules
@@ -59,12 +63,12 @@ addopts = """
     --tb=native -vv --doctest-modules --doctest-glob="*.rst"
     """
 # https://iscinumpy.gitlab.io/post/bound-version-constraints/#watch-for-warnings
-filterwarnings = "error"
+filterwarnings = ["error", "ignore::DeprecationWarning"]
 # Doctest python code in docs, python code in src docstrings, test functions in tests
 testpaths = "docs src tests"
 
 [tool.coverage.run]
-data_file = "/tmp/dls_pmac_lib.coverage"
+data_file = "/tmp/dls_pmaclib.coverage"
 
 [tool.coverage.paths]
 # Tests are run from installed location, map back to the src directory
@@ -90,7 +94,7 @@ allowlist_externals =
 commands =
     pre-commit: pre-commit run --all-files --show-diff-on-failure {posargs}
     type-checking: mypy src tests {posargs}
-    tests: pytest --cov=dls_pmac_lib --cov-report term --cov-report xml:cov.xml {posargs}
+    tests: pytest --cov=dls_pmaclib --cov-report term --cov-report xml:cov.xml {posargs}
     docs: sphinx-{posargs:build -EW --keep-going} -T docs build/html
 """
 

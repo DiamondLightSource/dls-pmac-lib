@@ -1,8 +1,8 @@
 import os
 import unittest
+from unittest.mock import patch
 
 from dls_pmaclib.dls_pmcpreprocessor import ClsPmacParser
-from mock import patch
 
 
 class TestPmcPreprocessor(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestPmcPreprocessor(unittest.TestCase):
     def test_save_output(self):
         self.obj.output = "0"
         ret = self.obj.saveOutput(self.test_file)
-        f = open(self.test_file, "r")
+        f = open(self.test_file)
         assert f.read() == "0\n"
         f.close()
         assert ret == 0
