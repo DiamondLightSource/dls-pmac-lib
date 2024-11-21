@@ -1,0 +1,10 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: dls-pmaclib
+  title: dls-pmac-lib
+  description: Python library for communicating with Delta Tau PMACs (both Turbo and Power)
+spec:
+  type: library
+  lifecycle: production
+  owner: group:default/sscc
