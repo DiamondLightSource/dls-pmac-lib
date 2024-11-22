@@ -595,24 +595,34 @@ class PPmacSshInterface(RemotePmacInterface):
     # Number of bytes to receive from communication channel
     num_recv_bytes = 8192
 
+    # Wait until a specified string is seen within
+    # received data before proceeding
+    def wait_to_receive_string(self, client, string_to_wait_for):
+        string_received = False
+        while not string_received:
+            time.sleep(0.1)
+            response = client.recv(2048)
+            response = response.decode()
+            if string_to_wait_for in response:
+                string_received = True
+        return
+
     def start_gpascii(self):
         # print("Starting gpascii")
         # Have to create a 'special shell' to invoke gpascii
         self.gpascii_client = self.client.invoke_shell(term="vt100")
         self.gpascii_client.send("gpascii -2\r\n")
 
-        # Have to wait a few seconds to make sure the gpascii command has been issued
-        # and we are 'in' to the ppmac. Wait from message 'STDIN Open for ASCII Input'
-        self.gpascii_issued = False
-        while not self.gpascii_issued:
-            # Decode response
-            time.sleep(0.1)
-            response = self.gpascii_client.recv(2048)
-            response = response.decode()
-            if "ASCII" in response:
-                self.gpascii_issued = True
+        # Ensure the shell is ready before trying to run gpascii
+        # by waiting to see the @ character on the command line
+        self.wait_to_receive_string(self.gpascii_client, "@")
 
-        # print(" ... done")
+        # Can now run up gpascii within the shell
+        self.gpascii_client.send("gpascii -2\r\n")
+
+        # Ensure gpascii is ready for input by waiting
+        # for part of the message 'STDIN Open for ASCII Input'
+        self.wait_to_receive_string(self.gpascii_client, "ASCII")
 
     def connect(
         self, updatesReadyEvent=None, username="root", password="deltatau", timeout=3.0
