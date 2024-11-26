@@ -605,13 +605,10 @@ class PPmacSshInterface(RemotePmacInterface):
             response = response.decode()
             if string_to_wait_for in response:
                 string_received = True
-        return
 
     def start_gpascii(self):
-        # print("Starting gpascii")
         # Have to create a 'special shell' to invoke gpascii
         self.gpascii_client = self.client.invoke_shell(term="vt100")
-        self.gpascii_client.send("gpascii -2\r\n")
 
         # Ensure the shell is ready before trying to run gpascii
         # by waiting to see the @ character on the command line
