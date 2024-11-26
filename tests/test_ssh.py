@@ -1,7 +1,9 @@
+import signal
 import unittest
 from unittest.mock import Mock, patch
 
 import paramiko
+from parameterized import parameterized
 
 import dls_pmaclib.dls_pmacremote as dls_pmacremote
 
@@ -17,18 +19,40 @@ class TestSshInterface(unittest.TestCase):
         assert self.obj.client is None
         assert self.obj.num_recv_bytes == 8192
 
-    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.client.invoke_shell")
-    @patch("dls_pmaclib.dls_pmacremote.PPmacSshInterface.client")
-    def test_start_gpascii(self, mock_client, mock_gpascii):
-        mock_instance = Mock()
-        mock_instance.send.return_value = None
-        mock_instance.recv.return_value = b"ASCII"
-        mock_gpascii.return_value = mock_instance
-        assert self.obj.start_gpascii() is None
-        assert self.obj.gpascii_issued is True
-        mock_gpascii.assert_called_with(term="vt100")
-        mock_instance.send.assert_called_with("gpascii -2\r\n")
-        mock_instance.recv.assert_called_with(2048)
+    def timeout_handler(self, signum, frame):
+        raise TimeoutError("Function took too long to complete")
+
+    @parameterized.expand(
+        [
+            ("test_wait_for_shell_ready", "@", b"root@123.45.67.89:/opt/ppmac"),
+            ("test_wait_for_gpascii_ready", "ASCII", b"STDIN Open for ASCII Input"),
+        ]
+    )
+    @patch(
+        "time.sleep", return_value=None
+    )  # Mock time.sleep to avoid delays in the test
+    def test_wait_to_receive_string(
+        self, name, string_to_wait_for, mock_response, mock_sleep
+    ):
+        # Mock the ssh client and its recv method response
+        mock_client = Mock()
+        mock_client.recv.return_value = mock_response
+
+        # Set a timeout alarm for 2 seconds
+        signal.signal(signal.SIGALRM, self.timeout_handler)
+        signal.alarm(2)
+
+        try:
+            object = dls_pmacremote.PPmacSshInterface()
+            object.wait_to_receive_string(mock_client, string_to_wait_for)
+            # Cancel the alarm if the function returns in time
+            signal.alarm(0)
+        except TimeoutError:
+            self.fail("Function took longer than 2 seconds to complete")
+
+        # Assert that the recv method was called and the function returned
+        mock_client.recv.assert_called()
+        self.assertTrue(mock_client.recv.called)
 
     def test_connection_already_open(self):
         self.obj.isConnectionOpen = True
