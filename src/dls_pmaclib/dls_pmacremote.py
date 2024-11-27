@@ -316,7 +316,7 @@ class RemotePmacInterface:
             else:
                 self._numAxes = self._getNumberOfMacroStationAxes()
         if self.verboseMode:
-            log.info("Total number of axes is %d." % self._numAxes)
+            log.info(f"Total number of axes is {self._numAxes}.")
         return self._numAxes
 
     def checkAxisIsInRange(self, axis):
@@ -324,8 +324,7 @@ class RemotePmacInterface:
             raise ValueError("Asking for a negative axis")
         if axis > self.getNumberOfAxes():
             raise ValueError(
-                "Requested axis %d but PMAC has only %d axes"
-                % (axis, self.getNumberOfAxes())
+                f"Requested axis {axis} but PMAC has only {self.getNumberOfAxes()} axes"
             )
 
     # Returns: Macro station number
@@ -337,7 +336,7 @@ class RemotePmacInterface:
             return self.MACRO_STATION_LOOKUP_TABLE[axis - 1]
         else:
             if axis <= 8:
-                raise ValueError("Axis %d is not on the MACRO ring" % axis)
+                raise ValueError(f"Axis {axis} is not on the MACRO ring")
             else:
                 return (
                     self.MACRO_STATION_LOOKUP_TABLE[(axis - 8) - 1]
@@ -359,7 +358,7 @@ class RemotePmacInterface:
         iVars = (base + x for x in offsets)
         cmd = ""
         for iVar in iVars:
-            cmd += "i%d " % iVar
+            cmd += f"i{iVar} "
         (retStr, status) = self.sendCommand(cmd)
         if status:
             return retStr.split("\r")[:-1]
@@ -385,7 +384,7 @@ class RemotePmacInterface:
     def setAxisSetupIVar(self, axis, offset, value):
         self.checkAxisIsInRange(axis)
         iVar = 100 * axis + offset
-        self.setVar("i%d" % iVar, value)
+        self.setVar(f"i{iVar}", value)
 
     # Get macro station I-variables for a particular axis (or None on failure)
     def getAxisMsIVars(self, axis, msIVars, macroAxisStart=0):
@@ -393,7 +392,7 @@ class RemotePmacInterface:
         macroStationNo = self.getAxisMacroStationNumber(axis, macroAxisStart)
         cmd = ""
         for msIVar in msIVars:
-            cmd += "ms%d,i%d " % (macroStationNo, msIVar)
+            cmd += f"ms{macroStationNo},i{msIVar} "
         (retStr, status) = self.sendCommand(cmd)
         if status:
             return retStr.split("\r")[:-1]
@@ -403,7 +402,7 @@ class RemotePmacInterface:
     def setAxisMsIVar(self, axis, iVar, value):
         self.checkAxisIsInRange(axis)
         macroStationNo = self.getAxisMacroStationNumber(axis)
-        self.setVar("ms%d,i%d" % (macroStationNo, iVar), value)
+        self.setVar(f"ms{macroStationNo},i{iVar}", value)
 
     # Calculate the base I-variable number in the I70mn (say, "I7000+") range
     # for an onboard Geobrick axis.
@@ -413,7 +412,7 @@ class RemotePmacInterface:
         # If not a Geobrick axis, raise an exception
         self.checkAxisIsInRange(axis)
         if self.isMacroStationAxis(axis):
-            raise ValueError("Axis %d is not an onboard axis" % axis)
+            raise ValueError(f"Axis {axis} is not an onboard axis")
 
         # Calculate the base
         m = (axis - 1) // 4  # m in 0..9
@@ -428,7 +427,7 @@ class RemotePmacInterface:
     def setOnboardAxisI7000PlusIVar(self, axis, offset, value):
         base = self.getOnboardAxisI7000PlusVarsBase(axis)
         iVar = base + offset
-        self.setVar("i%d" % iVar, value)
+        self.setVar(f"i{iVar}", value)
 
     # function that sends out a whole list of commands to the pmac
     # (like from a file...). The function waits for a response from each command
@@ -565,8 +564,8 @@ class RemotePmacInterface:
         for i in range(1, 33):
             try:
                 log.info(
-                    "pmac.getAxisMacroStationNumber(%d) returns %s."
-                    % (i, repr(self.getAxisMacroStationNumber(i)))
+                    f"pmac.getAxisMacroStationNumber({i}) returns \
+                        {repr(self.getAxisMacroStationNumber(i))}."
                 )
             except Exception:
                 log.debug("pmac.getAxisMacroStationNumber(%d)", i, exc_info=True)
@@ -575,8 +574,8 @@ class RemotePmacInterface:
         for i in range(1, 33):
             try:
                 log.info(
-                    "pmac.isMacroStationAxis(%d) returns %s."
-                    % (i, repr(self.isMacroStationAxis(i)))
+                    f"pmac.isMacroStationAxis({i}) returns \
+                        {repr(self.isMacroStationAxis(i))}."
                 )
             except Exception:
                 log.debug("pmac.isMacroStationAxis(%d)", i, exc_info=True)
@@ -704,7 +703,7 @@ class PPmacSshInterface(RemotePmacInterface):
         (retStr, wasSuccessful) = self.sendCommand("Sys.MaxMotors")
         numMotors = int(retStr) - 1
         if self.verboseMode:
-            log.info("Total number of motors is %d." % numMotors)
+            log.info(f"Total number of motors is {numMotors}.")
         return numMotors
 
     def _sendCommand(self, command, shouldWait=True, doubleTimeout=False):
@@ -834,9 +833,7 @@ class PmacEthernetInterface(RemotePmacInterface):
                 )
             self.sock.connect((self.hostname, self.port))
             if self.verboseMode:
-                log.warning(
-                    'Connected to host "%s" on port %d' % (self.hostname, self.port)
-                )
+                log.warning(f'Connected to host "{self.hostname}" on port {self.port}')
         except socket.gaierror:
             return "ERROR: unknown host"
         except Exception:
