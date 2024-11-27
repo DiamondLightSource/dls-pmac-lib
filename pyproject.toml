@@ -26,6 +26,7 @@ dev = [
     "copier",
     "mypy",
     "myst-parser",
+    "parameterized",
     "pipdeptree",
     "pre-commit",
     "pydata-sphinx-theme>=0.12",
